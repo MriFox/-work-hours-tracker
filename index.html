@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F5F5F7">
+<script>
+(function(){
+  try{
+    var users=JSON.parse(localStorage.getItem('workHours_users')||'[]');
+    if(users.length>0){
+      var s=JSON.parse(localStorage.getItem('workHours_'+users[0].id+'_settings')||'{}');
+      if(s.darkMode){
+        document.documentElement.setAttribute('data-theme','dark');
+        var tc=document.querySelector('meta[name="theme-color"]');
+        if(tc)tc.setAttribute('content','#12100E');
+      }
+      document.documentElement.setAttribute('data-style',s.style||'flat');
+    }
+  }catch(e){}
+})();
+</script>
+<meta name="description" content="轻量级工时记录工具，支持多模式">
+<title>工时记录</title>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+
+<!-- Google Fonts (离线时回退系统字体) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Stylesheets -->
+<link rel="stylesheet" href="css/design-system.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/picker.css">
+<link rel="stylesheet" href="css/toast.css">
+<link rel="stylesheet" href="css/a11y.css">
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="page active">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-title">工时记录</div>
+      <div class="login-subtitle">高效管理你的时间</div>
+      <div class="login-input-wrapper">
+        <input type="text" class="input" id="nicknameInput" placeholder="输入你的昵称" maxlength="20" autocomplete="off">
+      </div>
+      <div class="mode-grid" id="modeGrid">
+        <div class="mode-card selected" data-type="civil" onclick="selectLoginMode(this)">
+          <div class="mode-card-icon">🏛️</div>
+          <div class="mode-card-name">标准模式</div>
+        </div>
+        <div class="mode-card" data-type="comprehensive" onclick="selectLoginMode(this)">
+          <div class="mode-card-icon">⏰</div>
+          <div class="mode-card-name">综合工时</div>
+        </div>
+        <div class="mode-card" data-type="flextime" onclick="selectLoginMode(this)">
+          <div class="mode-card-icon">📅</div>
+          <div class="mode-card-name">大小周</div>
+        </div>
+        <div class="mode-card" data-type="custom" onclick="selectLoginMode(this)">
+          <div class="mode-card-icon">⚙️</div>
+          <div class="mode-card-name">自定义</div>
+        </div>
+      </div>
+      <button class="btn btn-primary login-btn" id="loginBtn" disabled onclick="handleLogin()">进入</button>
+      <button class="login-reset" onclick="showConfirm('重置数据', '清除所有数据？此操作不可恢复！', function(){DataStore.clear();location.reload()})">重置数据</button>
+    </div>
+  </div>
+</div>
+
+<!-- WIZARD PAGE -->
+<div id="wizardPage" class="page">
+  <div class="page-content" style="padding-top:20px">
+    <div class="wizard" id="wizardContainer"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="page">
+  <div class="app-container">
+    <div class="mode-bar">
+      <div class="mode-bar-left"><div class="mode-bar-scroll" id="modeBar"></div></div>
+      <div class="mode-bar-right" id="modeBarRight"></div>
+    </div>
+    <div class="page-content" id="pageContent"></div>
+    <div class="bottom-nav">
+      <div class="bottom-nav-inner">
+        <div class="nav-tab active" data-tab="record" onclick="switchTab('record')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>记录</span>
+        </div>
+        <div class="nav-tab" data-tab="week" onclick="switchTab('week')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>周</span>
+        </div>
+        <div class="nav-tab" data-tab="month" onclick="switchTab('month')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <span>月度</span>
+        </div>
+        <div class="nav-tab" data-tab="quarter" onclick="switchTab('quarter')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          <span>季度</span>
+        </div>
+        <div class="nav-tab" data-tab="settings" onclick="switchTab('settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>设置</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">切换用户</div>
+    <div id="userList"></div>
+    <button class="btn w-full mt-12" onclick="addNewUser()">+ 添加新用户</button>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div class="confirm-overlay" id="confirmDialog">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle">确认</div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="confirm-actions">
+      <button class="btn" onclick="closeConfirm(false)">取消</button>
+      <button class="btn btn-primary" onclick="closeConfirm(true)">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileImport(event)">
+
+<!-- 自定义日期选择器 -->
+<div class="picker-overlay" id="datePickerOverlay" onclick="if(event.target===this)confirmDatePicker()">
+  <div class="picker-sheet">
+    <div class="picker-header">
+      <button class="picker-cancel" onclick="closeDatePicker()">取消</button>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="picker-month-btn" onclick="changePickerMonth(-1)">‹</button>
+        <div class="picker-title" id="datePickerTitle">2026年6月</div>
+        <button class="picker-month-btn" onclick="changePickerMonth(1)">›</button>
+      </div>
+      <button class="picker-confirm" onclick="confirmDatePicker()">确定</button>
+    </div>
+    <div class="picker-calendar">
+      <div class="picker-weekdays">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+      </div>
+      <div class="picker-days" id="datePickerDays"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义时间选择器 -->
+<div class="picker-overlay" id="timePickerOverlay" onclick="if(event.target===this)closeTimePicker()">
+  <div class="time-picker-sheet">
+    <div class="picker-handle"></div>
+    <div class="picker-header">
+      <button class="picker-cancel" onclick="closeTimePicker()">取消</button>
+      <div class="picker-title">选择时间</div>
+      <button class="picker-confirm" onclick="confirmTimePicker()">确定</button>
+    </div>
+    <div class="time-wheel-container">
+      <div class="time-wheel" id="hourWheel"></div>
+      <div class="time-wheel-separator">:</div>
+      <div class="time-wheel" id="minuteWheel"></div>
+    </div>
+    <button class="time-now-btn" onclick="selectNow()">现在</button>
+  </div>
+</div>
+
+<!-- Application Scripts (按依赖顺序加载) -->
+<script src="js/utils.js"></script>
+<script src="js/state.js"></script>
+<script src="js/components/toast.js"></script>
+<script src="js/components/confirm.js"></script>
+<script src="js/components/date-picker.js"></script>
+<script src="js/components/time-picker.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/pages/login.js"></script>
+<script src="js/pages/wizard.js"></script>
+<script src="js/pages/record.js"></script>
+<script src="js/pages/week.js"></script>
+<script src="js/pages/month.js"></script>
+<script src="js/pages/quarter.js"></script>
+<script src="js/app.js"></script>
+
+<!-- PWA Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').then(function(reg) {
+      console.log('SW registered: ', reg.scope);
+    }).catch(function(err) {
+      console.log('SW failed: ', err);
+    });
+  });
+}
+</script>
+</body>
+</html>

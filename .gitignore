@@ -1,0 +1,15 @@
+node_modules/
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/capacitor-android/build/
+android/capacitor-haptics/build/
+www/
+.playwright-cli/
+.workbuddy/
+*.apk
+snap*.yaml
+*.png
+UX体验评估报告.html
+package-lock.json

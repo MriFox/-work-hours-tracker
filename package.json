@@ -1,0 +1,22 @@
+{
+  "name": "work-hours-tracker",
+  "version": "0.4",
+  "description": "轻量级工时记录工具 - PWA",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Static PWA - no build needed'"
+  },
+  "keywords": [
+    "pwa",
+    "work-hours",
+    "time-tracking"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/haptics": "^8.0.2"
+  }
+}

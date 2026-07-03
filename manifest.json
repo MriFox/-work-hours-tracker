@@ -1,0 +1,48 @@
+{
+  "name": "工时记录",
+  "short_name": "工时记",
+  "id": "./",
+  "scope": "./",
+  "description": "轻量级工时记录工具 - 多模式支持",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#F5F5F7",
+  "theme_color": "#007AFF",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "icons": [
+    { "src": "icons/icon-72x72.png", "sizes": "72x72", "type": "image/png" },
+    { "src": "icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "icons/icon-128x128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "icons/icon-144x144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "icons/icon-152x152.png", "sizes": "152x152", "type": "image/png" },
+    { "src": "icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-384x384.png", "sizes": "384x384", "type": "image/png" },
+    { "src": "icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "记录工时",
+      "short_name": "记录",
+      "description": "快速添加工时记录",
+      "url": "./index.html#record"
+    },
+    {
+      "name": "周视图",
+      "short_name": "周报",
+      "description": "查看本周工时统计",
+      "url": "./index.html#week"
+    },
+    {
+      "name": "月视图",
+      "short_name": "月报",
+      "description": "查看本月工时统计",
+      "url": "./index.html#month"
+    }
+  ]
+}
