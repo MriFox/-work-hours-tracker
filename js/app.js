@@ -266,7 +266,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">工时记录</div>' +
-        '<div class="settings-about-version">v0.5.3</div>' +
+        '<div class="settings-about-version">v0.5.5</div>' +
       '</div>' +
 
     '</div>';
