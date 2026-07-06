@@ -33,7 +33,7 @@
   function saveSession(uid) { DS.set(P + '_session', uid); }
   function getSession() { return DS.get(P + '_session', null); }
   function clearSession() { DS.remove(P + '_session'); }
-  function getUserSettings() { if (!st.currentUser) return {}; return DS.get(P + st.currentUser.id + '_settings') || getDefaultSettings(); }
+  function getUserSettings() { if (!st.currentUser) return getDefaultSettings(); return DS.get(P + st.currentUser.id + '_settings') || getDefaultSettings(); }
   function saveUserSettings(s) { if (st.currentUser) DS.set(P + st.currentUser.id + '_settings', s); }
   function getUserRecords() { if (!st.currentUser) return []; return DS.get(P + st.currentUser.id + '_records', []); }
   function saveUserRecords(r) { if (st.currentUser) DS.set(P + st.currentUser.id + '_records', r); }

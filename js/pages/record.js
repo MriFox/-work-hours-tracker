@@ -34,7 +34,7 @@ function renderTimerDisplay(el, tr, stdHoursMin) {
       '<span class="timer-bar-end">' + endStr + '</span>' +
     '</div>' +
     '<div class="timer-bar-track">' +
-      '<div class="timer-bar-fill" style="width:' + pct + '%"></div>' +
+      '<div class="timer-bar-fill" style="width:' + pct + '%;background:' + color + '"></div>' +
     '</div>' +
     '<div class="timer-bar-meta">' +
       '<span class="timer-bar-worked">' + (elapsedMin / 60).toFixed(1) + 'h / ' + (stdHoursMin / 60) + 'h</span>' +

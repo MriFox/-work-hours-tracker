@@ -54,6 +54,9 @@
     var offset = circumference - (pg / 100) * circumference;
     var ringClass = isEmpty ? 'empty' : pg >= 75 ? 'good' : pg >= 50 ? 'ok' : 'bad';
 
+    var monthWorkedDays = mr.filter(function(x) { return !x.isHoliday; }).length;
+    var monthAvg = monthWorkedDays > 0 ? (th / monthWorkedDays) : 0;
+
     var statsHtml = '<div class="quarter-stats-grid">' +
       '<div class="quarter-stat-card">' +
         '<div class="quarter-stat-icon">🎯</div>' +
@@ -97,9 +100,9 @@
         '<div class="quarter-ring-label">' + (m + 1) + '月 进度</div>' +
       '</div>' +
       '<div class="quarter-ring-detail">' +
-        '已用 <strong>' + th.toFixed(1) + 'h</strong> · ' +
+        '已完成 <strong>' + th.toFixed(1) + 'h</strong> · ' +
         '目标 <strong>' + tar + 'h</strong> · ' +
-        '剩余 <strong>' + Math.max(0, tar - th).toFixed(1) + 'h</strong>' +
+        (monthWorkedDays > 0 ? '日均 <strong>' + monthAvg.toFixed(1) + 'h</strong>' : '') +
       '</div>' +
     '</div>';
 

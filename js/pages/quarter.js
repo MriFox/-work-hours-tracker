@@ -23,7 +23,7 @@
       return;
     }
 
-    var qT = 0, qTar = 0, qHF = 0, qDays = 0;
+    var qT = 0, qTar = 0, qHF = 0, qDays = 0, qWorkedDays = 0;
     var monthData = cq.months.map(function(m) {
       var ms = qy + '-' + String(m).padStart(2, '0');
       var mr = r.filter(function(x) { return x.date.startsWith(ms); });
@@ -39,6 +39,7 @@
       qTar += mtar;
       qHF += hh * (s.holidayRate || 0);
       qDays += workDays.length;
+      qWorkedDays += mr.filter(function(x) { return !x.isHoliday; }).length;
       return { name: m + '月', total: mt, target: mtar, pct: mtar > 0 ? Math.min(100, (mt / mtar) * 100) : 0 };
     });
 
@@ -47,16 +48,12 @@
     var pClass = pg >= 100 ? 'good' : pg >= 75 ? 'ok' : pg >= 50 ? 'warn' : pg > 0 ? 'bad' : 'empty';
     var isEmpty = qT === 0;
 
-    var md2 = WHT.getUserModes().find(function(x) { return x.id === st.currentMode; });
-    var cb = 0;
-    if (md2 && md2.type === 'flextime') {
-      cb = WHT.getUserCompTime().reduce(function(a, x) { return a + (x.type === 'earn' ? x.hours : -x.hours); }, 0);
-    }
-
     var radius = 80;
     var circumference = Math.PI * radius;
     var offset = circumference - (pg / 100) * circumference;
     var ringClass = isEmpty ? 'empty' : pClass;
+
+    var qAvg = qWorkedDays > 0 ? (qT / qWorkedDays) : 0;
 
     var statsHtml = '<div class="quarter-stats-grid">' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">🎯</div><div class="quarter-stat-value">' + (isEmpty ? '<span class="empty-text">待开始</span>' : qTar + 'h') + '</div><div class="quarter-stat-label">目标(h)</div></div>' +
@@ -68,7 +65,7 @@
     var ringHtml = '<div class="quarter-ring-container">' +
       '<svg class="quarter-ring" viewBox="0 0 200 110"><path class="quarter-ring-bg" d="M 10 100 A 80 80 0 0 1 190 100" /><path class="quarter-ring-fill ' + ringClass + '" d="M 10 100 A 80 80 0 0 1 190 100" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + (isEmpty ? circumference : offset) + '" pathLength="' + circumference + '" /></svg>' +
       '<div class="quarter-ring-center"><div class="quarter-ring-pct">' + (isEmpty ? '待开始' : pg.toFixed(0) + '%') + '</div><div class="quarter-ring-label">' + cq.name + ' 进度</div></div>' +
-      '<div class="quarter-ring-detail">已用 <strong>' + qT.toFixed(1) + 'h</strong> · 目标 <strong>' + qTar + 'h</strong> · 剩余 <strong>' + Math.max(0, qTar - qT).toFixed(1) + 'h</strong></div>' +
+      '<div class="quarter-ring-detail">已完成 <strong>' + qT.toFixed(1) + 'h</strong> · 目标 <strong>' + qTar + 'h</strong> · ' + (qWorkedDays > 0 ? '日均 <strong>' + qAvg.toFixed(1) + 'h</strong>' : '') + '</div>' +
     '</div>';
 
     var maxTarget = Math.max.apply(null, monthData.map(function(x) { return x.target; })) || 1;

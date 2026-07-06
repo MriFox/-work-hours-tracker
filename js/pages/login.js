@@ -46,14 +46,30 @@
   }
 
   function enterApp() {
-    WHT.haptic('heavy');
-    WHT.applyTheme();
-    WHT.applyStyle();
-    WHT.saveSession(WHT.state.currentUser.id);
-    document.getElementById('loginPage').classList.remove('active');
-    document.getElementById('mainApp').classList.add('active');
-    WHT.renderModeBar();
-    WHT.switchTab('record');
+    if (!WHT.state.currentUser) {
+      document.getElementById('loginPage').classList.add('active');
+      document.getElementById('mainApp').classList.remove('active');
+      document.getElementById('userModal').classList.remove('active');
+      return;
+    }
+    try {
+      WHT.haptic('heavy');
+      WHT.applyTheme();
+      WHT.applyStyle();
+      WHT.saveSession(WHT.state.currentUser.id);
+      document.getElementById('loginPage').classList.remove('active');
+      var mainApp = document.getElementById('mainApp');
+      mainApp.classList.add('active');
+      // 强制 layout 计算，确保 pageContent 高度已就绪
+      mainApp.offsetHeight;
+      var pc = document.getElementById('pageContent');
+      if (pc) pc.offsetHeight;
+      WHT.renderModeBar();
+      WHT.switchTab('record');
+    } catch(e) {
+      console.error('enterApp error', e);
+      // 吞掉异常，防止传播到 app.js 的 catch block（会清空 currentUser）
+    }
   }
 
   function showUserModal() {
@@ -63,7 +79,7 @@
       var av = u.avatar || u.nickname.charAt(0);
       var isI = av && av.startsWith && av.startsWith('data:');
       var avHtml = isI ? '<img src="' + av + '" class="user-list-avatar-img" alt="">' : WHT.escapeHtml(av);
-      var isCurrent = u.id === st.currentUser.id;
+      var isCurrent = st.currentUser && u.id === st.currentUser.id;
       var delBtn = (!isCurrent && canDelete) ? '<button class="user-list-delete" onclick="event.stopPropagation();deleteUser(\'' + WHT.escapeHtml(u.id) + '\')" title="删除用户">&times;</button>' : '';
       return '<div class="user-list-item ' + (isCurrent ? 'active' : '') + '" onclick="switchUser(\'' + WHT.escapeHtml(u.id) + '\')"><div class="user-list-avatar">' + avHtml + '</div><div class="user-list-name">' + WHT.escapeHtml(u.nickname) + '</div>' + delBtn + (isCurrent ? '<div class="user-list-check">\u2713</div>' : '') + '</div>';
     }).join('');

@@ -28,15 +28,16 @@
     var diff = ws.total - t;
     var isCurrentWeek = st.weekOffset === 0;
     var pct = t > 0 ? Math.min(100, Math.round(ws.total / t * 100)) : 0;
+    var isEmpty = ws.total === 0;
     var todayStr = WHT.today();
     var todayIdx = d.indexOf(todayStr);
     var daysPassed = todayIdx >= 0 ? todayIdx + 1 : 7;
     var expectedPct = Math.min(100, Math.round(daysPassed / 7 * 100));
     var pctRatio = expectedPct > 0 ? pct / expectedPct : 1;
-    var pctClass = pctRatio >= 1 ? 'good' : pctRatio >= 0.75 ? 'ok' : pctRatio >= 0.5 ? 'warn' : 'bad';
+    var pctClass = isEmpty ? 'empty' : pctRatio >= 1 ? 'good' : pctRatio >= 0.75 ? 'ok' : pctRatio >= 0.5 ? 'warn' : 'bad';
     var avg = ws.days > 0 ? (ws.total / ws.days) : 0;
     var circumference = 2 * Math.PI * 80 * 180 / 360;
-    var offset = circumference * (1 - pct / 100);
+    var offset = isEmpty ? circumference : circumference * (1 - pct / 100);
 
     var hh = r.filter(function(x) { return x.isHoliday && d.includes(x.date); }).reduce(function(a, x) { return a + x.hours; }, 0);
     var hf = hh * (s.holidayRate || 0);

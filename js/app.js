@@ -5,35 +5,7 @@
   var WHT = W.WHT;
   var st = WHT.state;
 
-// Init
-WHT.loadData();
-WHT.applyTheme();
-try {
-  // 恢复登录态：退后台/杀进程后不需要重新登录
-  var savedUid = WHT.getSession();
-  if (savedUid && st.users.length > 0) {
-    var savedUser = st.users.find(function(u) { return u.id === savedUid; });
-    if (savedUser) {
-      st.currentUser = savedUser;
-      WHT.applyTheme();
-      var mm = WHT.getUserModes();
-      if (mm.length > 0) { st.currentMode = mm[0].id; WHT.enterApp(); }
-    }
-  } else if (st.users.length === 1) {
-    st.currentUser = st.users[0];
-    WHT.applyTheme();
-    var m = WHT.getUserModes();
-    if (m.length > 0) { st.currentMode = m[0].id; WHT.enterApp(); }
-  } else if (st.users.length > 1) {
-    // 多用户且无session时保持登录页
-  }
-} catch(e) {
-  WHT.state = {users:st.users,currentUser:null,currentMode:null,currentTab:'record',weekOffset:0,monthOffset:0,quarterIndex:0,quarterYear:new Date().getFullYear(),selectedDay:null,wizardData:{},wizardStep:0};
-  st = WHT.state;
-}
-document.querySelector('.mode-card[data-type="civil"]').classList.add('selected');
-
-// 跨午夜刷新：切后台再回来时，如果日期变了，刷新当前页面
+// Event listeners：切后台再回来时，如果日期变了，刷新当前页面
 st._lastVisibleDate=WHT.today();
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='visible'){
@@ -77,10 +49,18 @@ function switchTab(t){
   WHT.haptic('light');
   WHT.stopWorkingTimer();
   document.querySelectorAll('.nav-tab').forEach(function(x){x.classList.toggle('active',x.dataset.tab===t)});
-  history.pushState({tab:t,timestamp:Date.now()},'', '#'+t);
+  try{history.pushState({tab:t,timestamp:Date.now()},'', '#'+t);}catch(e){}
   WHT.renderCurrentTab();
 }
-function renderCurrentTab(ps){var psVal=ps===true;var c=document.getElementById('pageContent');if(!c)return;var sp=psVal?c.scrollTop:0;try{switch(st.currentTab){case'record':WHT.renderRecordPage(c);break;case'week':WHT.renderWeekPage(c);break;case'month':WHT.renderMonthPage(c);break;case'quarter':WHT.renderQuarterPage(c);break;case'settings':WHT.renderSettingsPage(c);break}}catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">页面加载出错，请重试</div></div>'}if(psVal)requestAnimationFrame(function(){c.scrollTop=sp})}
+function renderCurrentTab(ps){
+  if (!st.currentUser) {
+    document.getElementById('loginPage').classList.add('active');
+    document.getElementById('mainApp').classList.remove('active');
+    document.getElementById('userModal').classList.remove('active');
+    return;
+  }
+  var psVal=ps===true;var c=document.getElementById('pageContent');if(!c)return;var sp=psVal?c.scrollTop:0;try{switch(st.currentTab){case'record':WHT.renderRecordPage(c);break;case'week':WHT.renderWeekPage(c);break;case'month':WHT.renderMonthPage(c);break;case'quarter':WHT.renderQuarterPage(c);break;case'settings':WHT.renderSettingsPage(c);break}}catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">页面加载出错，请重试</div></div>'}if(psVal)requestAnimationFrame(function(){c.scrollTop=sp})
+}
 
 // ═══ iOS 风格设置页 ═══
 function renderSettingsPage(c) {
@@ -280,7 +260,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">工时记录</div>' +
-        '<div class="settings-about-version">v0.4.6</div>' +
+        '<div class="settings-about-version">v0.5.0</div>' +
       '</div>' +
 
     '</div>';
@@ -355,7 +335,6 @@ function saveProfile() {
   WHT.renderModeBar(); WHT.renderCurrentTab(true);
   WHT.showToast('用户名已更新');
 }
-function switchSettingsTab(){} // 保留空函数兼容旧引用
 function updateSetting(k,v){WHT.haptic('light');var s=WHT.getUserSettings();s[k]=v;WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function updateFlextimeSetting(k,v){WHT.haptic('light');var s=WHT.getUserSettings();s.flextimeConfig[k]=v;WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function renameMode(id){var modes=WHT.getUserModes();var m=modes.find(function(x){return x.id===id});if(!m)return;document.getElementById('confirmTitle').textContent='重命名模式';document.getElementById('confirmMsg').innerHTML='<input type="text" class="input" id="renameInput" value="'+WHT.escapeHtml(m.name)+'" maxlength="20" style="margin-top:8px">';var confirmBtn=document.querySelector('#confirmDialog .btn-primary');var cancelBtn=document.querySelector('#confirmDialog .btn');var origConfirm=confirmBtn.textContent;var origCancel=cancelBtn.textContent;confirmBtn.textContent='确认';cancelBtn.textContent='取消';document.getElementById('confirmDialog').classList.add('active');var handler=function(ok){document.getElementById('confirmDialog').classList.remove('active');confirmBtn.textContent=origConfirm;cancelBtn.textContent=origCancel;if(ok){var input=document.getElementById('renameInput');if(input&&input.value.trim()){m.name=input.value.trim();WHT.haptic('medium');WHT.saveUserModes(modes);WHT.renderModeBar();WHT.renderCurrentTab(true)}}};cancelBtn.onclick=function(){handler(false)};confirmBtn.onclick=function(){handler(true)}}
@@ -399,7 +378,6 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
   WHT.switchTab = switchTab;
   WHT.renderCurrentTab = renderCurrentTab;
   WHT.renderSettingsPage = renderSettingsPage;
-  WHT.switchSettingsTab = switchSettingsTab;
   WHT.updateSetting = updateSetting;
   WHT.updateFlextimeSetting = updateFlextimeSetting;
   WHT.renameMode = renameMode;
@@ -428,7 +406,7 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
     'loadData','saveUsers','getUserSettings','saveUserSettings','getUserRecords','saveUserRecords','getUserCompTime','saveUserCompTime','getUserModes','saveUserModes','getDefaultSettings','getDefaultModes',
     'showToast','showToastWithAction','showConfirm','closeConfirm',
     'toggleDarkMode','applyTheme','applyStyle','toggleStyle','getStyleLabel',
-    'renderModeBar','switchMode','addNewMode','switchTab','renderCurrentTab','renderSettingsPage','switchSettingsTab',
+    'renderModeBar','switchMode','addNewMode','switchTab','renderCurrentTab','renderSettingsPage',
     'updateSetting','updateFlextimeSetting','renameMode','deleteMode',
     'addCommonSlot','removeCommonSlot','addQuarter','removeQuarter',
     'exportJSON','exportCSV','validateImportData','handleFileImport','clearAllData',
@@ -451,5 +429,42 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
 
   // 状态对象也保持全局可访问（兼容历史代码）
   window.state = WHT.state;
+
+  // === 延迟到所有导出完成后才执行的初始化 ===
+  WHT.loadData();
+  WHT.applyTheme();
+  WHT.applyStyle();
+  try {
+    var savedUid = WHT.getSession();
+    if (savedUid && st.users.length > 0) {
+      var savedUser = st.users.find(function(u) { return u.id === savedUid; });
+      if (savedUser) {
+        st.currentUser = savedUser;
+        WHT.applyTheme();
+        var mm = WHT.getUserModes();
+        if (mm.length > 0) { st.currentMode = mm[0].id; WHT.enterApp(); }
+      }
+    } else if (st.users.length === 1) {
+      st.currentUser = st.users[0];
+      WHT.applyTheme();
+      var m = WHT.getUserModes();
+      if (m.length > 0) { st.currentMode = m[0].id; WHT.enterApp(); }
+    } else if (st.users.length > 1) {
+      // 多用户且无session时保持登录页
+    }
+  } catch(e) {
+    st.users = st.users || [];
+    st.currentUser = null;
+    st.currentMode = null;
+    st.currentTab = 'record';
+    st.weekOffset = 0;
+    st.monthOffset = 0;
+    st.quarterIndex = 0;
+    st.quarterYear = new Date().getFullYear();
+    st.selectedDay = null;
+    st.wizardData = {};
+    st.wizardStep = 0;
+  }
+  document.querySelector('.mode-card[data-type="civil"]').classList.add('selected');
 
 })();

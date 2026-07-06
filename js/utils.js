@@ -46,8 +46,10 @@
   }
 
   function calculateHours(s, e) {
+    if (!s || !e || typeof s !== 'string' || typeof e !== 'string') return 0;
     var sp = s.split(':').map(Number);
     var ep = e.split(':').map(Number);
+    if (sp.length < 2 || ep.length < 2 || isNaN(sp[0]) || isNaN(ep[0])) return 0;
     var a = sp[0]*60 + sp[1];
     var b = ep[0]*60 + ep[1];
     if (b < a) b += 24*60;

@@ -18,6 +18,8 @@
         if(tc)tc.setAttribute('content','#12100E');
       }
       document.documentElement.setAttribute('data-style',s.style||'flat');
+    }else{
+      document.documentElement.setAttribute('data-style','flat');
     }
   }catch(e){}
 })();
