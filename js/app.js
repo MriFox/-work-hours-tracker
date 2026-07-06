@@ -90,7 +90,10 @@ function renderSettingsPage(c) {
   var slotRows = s.commonSlots.map(function(x, i) {
     return '<div class="settings-row">' +
       '<div class="settings-row-left"><span class="settings-label">' + h(x.start) + ' – ' + h(x.end) + '</span></div>' +
-      '<button class="btn-sm btn-sm-danger" onclick="event.stopPropagation();removeCommonSlot(' + i + ')">删除</button>' +
+      '<div class="settings-row-actions">' +
+        '<button class="btn-sm" onclick="event.stopPropagation();editCommonSlot(' + i + ')">修改</button>' +
+        '<button class="btn-sm btn-sm-danger" onclick="event.stopPropagation();removeCommonSlot(' + i + ')">删除</button>' +
+      '</div>' +
     '</div>';
   }).join('');
 
@@ -101,7 +104,10 @@ function renderSettingsPage(c) {
         '<span class="settings-label">' + h(q.name) + '</span>' +
         '<span class="settings-value">' + (q.months || []).join(',') + '月</span>' +
       '</div>' +
-      '<button class="btn-sm btn-sm-danger" onclick="event.stopPropagation();removeQuarter(' + i + ')">删除</button>' +
+      '<div class="settings-row-actions">' +
+        '<button class="btn-sm" onclick="event.stopPropagation();editQuarter(' + i + ')">修改</button>' +
+        '<button class="btn-sm btn-sm-danger" onclick="event.stopPropagation();removeQuarter(' + i + ')">删除</button>' +
+      '</div>' +
     '</div>';
   }).join('');
 
@@ -260,7 +266,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">工时记录</div>' +
-        '<div class="settings-about-version">v0.5.0</div>' +
+        '<div class="settings-about-version">v0.5.1</div>' +
       '</div>' +
 
     '</div>';
@@ -339,6 +345,10 @@ function updateSetting(k,v){WHT.haptic('light');var s=WHT.getUserSettings();s[k]
 function updateFlextimeSetting(k,v){WHT.haptic('light');var s=WHT.getUserSettings();s.flextimeConfig[k]=v;WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function renameMode(id){var modes=WHT.getUserModes();var m=modes.find(function(x){return x.id===id});if(!m)return;document.getElementById('confirmTitle').textContent='重命名模式';document.getElementById('confirmMsg').innerHTML='<input type="text" class="input" id="renameInput" value="'+WHT.escapeHtml(m.name)+'" maxlength="20" style="margin-top:8px">';var confirmBtn=document.querySelector('#confirmDialog .btn-primary');var cancelBtn=document.querySelector('#confirmDialog .btn');var origConfirm=confirmBtn.textContent;var origCancel=cancelBtn.textContent;confirmBtn.textContent='确认';cancelBtn.textContent='取消';document.getElementById('confirmDialog').classList.add('active');var handler=function(ok){document.getElementById('confirmDialog').classList.remove('active');confirmBtn.textContent=origConfirm;cancelBtn.textContent=origCancel;if(ok){var input=document.getElementById('renameInput');if(input&&input.value.trim()){m.name=input.value.trim();WHT.haptic('medium');WHT.saveUserModes(modes);WHT.renderModeBar();WHT.renderCurrentTab(true)}}};cancelBtn.onclick=function(){handler(false)};confirmBtn.onclick=function(){handler(true)}}
 function deleteMode(id){WHT.showConfirm('确认删除','确定要删除这个模式吗？',function(){WHT.haptic('delete');var m=WHT.getUserModes().filter(function(x){return x.id!==id});WHT.saveUserModes(m);if(st.currentMode===id&&m.length>0)st.currentMode=m[0].id;WHT.renderModeBar();WHT.renderCurrentTab(true)})}
+function editCommonSlot(i){WHT.haptic('light');var s=WHT.getUserSettings();var slot=s.commonSlots[i];if(!slot)return;document.getElementById('userModal').querySelector('.modal-title').textContent='编辑时段';document.getElementById('userModal').querySelector('.modal-sheet').innerHTML='<div class="modal-handle"></div><div class="modal-title">编辑时段</div><div class="form-group"><label class="form-label">开始时间</label><input type="text" class="input" id="slotEditStart" value="'+WHT.escapeHtml(slot.start)+'" data-picker="time" readonly onclick="WHT.openTimePicker(\'slotEditStart\',this.value)"></div><div class="form-group"><label class="form-label">结束时间</label><input type="text" class="input" id="slotEditEnd" value="'+WHT.escapeHtml(slot.end)+'" data-picker="time" readonly onclick="WHT.openTimePicker(\'slotEditEnd\',this.value)"></div><button class="btn btn-primary w-full mt-12" onclick="saveCommonSlotEdit('+i+')">保存</button>';document.getElementById('userModal').classList.add('active')}
+function saveCommonSlotEdit(i){WHT.haptic('medium');var s=WHT.getUserSettings();if(!s.commonSlots[i])return;var start=document.getElementById('slotEditStart').value;var end=document.getElementById('slotEditEnd').value;if(!start||!end){WHT.showToast('请填写开始和结束时间','warning');return}s.commonSlots[i]={start:start,end:end};WHT.saveUserSettings(s);document.getElementById('userModal').classList.remove('active');WHT.renderCurrentTab(true)}
+function editQuarter(i){WHT.haptic('light');var s=WHT.getUserSettings();var q=s.quarterConfig[i];if(!q)return;var mNames='一二三四五六七八九十十一十二'.split('');var mChecks=[1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){return'<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 6px;font-size:13px"><input type="checkbox" value="'+m+'" '+(q.months.indexOf(m)>=0?'checked':'')+'>'+mNames[m-1]+'月</label>'}).join('');document.getElementById('userModal').querySelector('.modal-title').textContent='编辑季度';document.getElementById('userModal').querySelector('.modal-sheet').innerHTML='<div class="modal-handle"></div><div class="modal-title">编辑季度</div><div class="form-group"><label class="form-label">名称</label><input type="text" class="input" id="quarterEditName" value="'+WHT.escapeHtml(q.name)+'" maxlength="20"></div><div class="form-group"><label class="form-label">月份</label><div id="quarterEditMonths" style="padding:8px 0">'+mChecks+'</div></div><button class="btn btn-primary w-full mt-12" onclick="saveQuarterEdit('+i+')">保存</button>';document.getElementById('userModal').classList.add('active')}
+function saveQuarterEdit(i){WHT.haptic('medium');var s=WHT.getUserSettings();if(!s.quarterConfig[i])return;var name=document.getElementById('quarterEditName').value.trim();if(!name){WHT.showToast('请输入名称','warning');return}var months=[];document.querySelectorAll('#quarterEditMonths input:checked').forEach(function(cb){months.push(parseInt(cb.value))});if(months.length===0){WHT.showToast('请至少选一个月','warning');return}s.quarterConfig[i]={name:name,months:months};WHT.saveUserSettings(s);document.getElementById('userModal').classList.remove('active');WHT.renderCurrentTab(true)}
 function addCommonSlot(){WHT.haptic('medium');var s=WHT.getUserSettings();s.commonSlots.push({start:'09:00',end:'18:00'});WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function removeCommonSlot(i){WHT.showConfirm('\u786e\u8ba4\u5220\u9664','\u786e\u5b9a\u5220\u9664\u8fd9\u4e2a\u5e38\u7528\u65f6\u6bb5\u5417\uff1f',function(){WHT.haptic('delete');var s=WHT.getUserSettings();s.commonSlots.splice(i,1);WHT.saveUserSettings(s);WHT.renderCurrentTab(true)})}
 function addQuarter(){WHT.haptic('medium');var s=WHT.getUserSettings();s.quarterConfig.push({name:'Q'+(s.quarterConfig.length+1),months:[]});WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
@@ -382,6 +392,10 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
   WHT.updateFlextimeSetting = updateFlextimeSetting;
   WHT.renameMode = renameMode;
   WHT.deleteMode = deleteMode;
+  WHT.editCommonSlot = editCommonSlot;
+  WHT.saveCommonSlotEdit = saveCommonSlotEdit;
+  WHT.editQuarter = editQuarter;
+  WHT.saveQuarterEdit = saveQuarterEdit;
   WHT.addCommonSlot = addCommonSlot;
   WHT.removeCommonSlot = removeCommonSlot;
   WHT.addQuarter = addQuarter;
@@ -408,7 +422,7 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
     'toggleDarkMode','applyTheme','applyStyle','toggleStyle','getStyleLabel',
     'renderModeBar','switchMode','addNewMode','switchTab','renderCurrentTab','renderSettingsPage',
     'updateSetting','updateFlextimeSetting','renameMode','deleteMode',
-    'addCommonSlot','removeCommonSlot','addQuarter','removeQuarter',
+    'addCommonSlot','editCommonSlot','saveCommonSlotEdit','removeCommonSlot','addQuarter','editQuarter','saveQuarterEdit','removeQuarter',
     'exportJSON','exportCSV','validateImportData','handleFileImport','clearAllData',
     'openAvatarPicker','closeAvatarPicker','updateAvatar','uploadAvatar',
     'showEditProfile','cancelEditProfile','saveProfile',
