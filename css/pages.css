@@ -1212,7 +1212,7 @@
 
 /* 日历 */
 .calendar { padding: var(--space-4); margin-bottom: var(--space-2); }
-.calendar-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 6px; }
+.calendar-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 6px; gap: 4px; }
 .calendar-header span { font-size: 11px; color: var(--text-muted); font-weight: 600; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .calendar-day {

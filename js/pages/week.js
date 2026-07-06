@@ -3,7 +3,7 @@
   "use strict";
   var WHT = window.WHT;
   var st = WHT.state;
-  var dayNames = ['一','二','三','四','五','六','日'];
+  var dayNames = ['日','一','二','三','四','五','六'];
 
   function renderWeekPage(c) {
     var d = WHT.getWeekDays(st.weekOffset);

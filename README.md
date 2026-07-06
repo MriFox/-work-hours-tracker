@@ -1,4 +1,4 @@
-# 工时记录 v0.5.0
+# 工时记录 v0.5.3
 
 轻量级工时记录工具，支持多种排班模式，PWA 离线使用。
 
@@ -13,15 +13,19 @@
 - **数据安全**：多用户隔离，导入/导出 JSON/CSV
 - **暗色模式**：支持暖色/极简两种风格
 - **触觉反馈**：Android 振动反馈
+- **WHT 命名空间**：模块化代码架构
 
 ## 安装使用
 
 ### Android APK
-从 [Releases](https://github.com/MriFox/-work-hours-tracker/releases) 下载 APK 安装。
+下载 `工时记录-v0.5.3.apk` 安装。
 
 ### PWA 浏览器
 1. 访问 https://mrifox.github.io/-work-hours-tracker/
 2. Chrome → 菜单 → 添加到桌面
+
+### HTML 安装包
+下载 `工时记录-v0.5.3.html`，用浏览器打开即可使用。
 
 ## 本地开发
 
