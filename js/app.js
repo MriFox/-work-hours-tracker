@@ -220,27 +220,27 @@ function renderSettingsPage(c) {
       flextimeBlock +
 
       // ── 常用时段 ──
-      '<div class="settings-group">' +
-        '<div class="settings-group-title">常用时段</div>' +
-        '<div class="settings-card">' +
+      '<div class="settings-group" data-collapse="slots">' +
+        '<div class="settings-group-title settings-group-title--toggler" onclick="toggleSettingsCollapse(this)"><span class="settings-collapse-arrow">▸</span> 常用时段</div>' +
+        '<div class="settings-card settings-card--collapsible">' +
           (slotRows || '<div class="settings-row"><span class="settings-label" style="color:var(--text-muted)">暂无自定义时段</span></div>') +
           '<div class="settings-add-btn" onclick="addCommonSlot()">+ 添加时段</div>' +
         '</div>' +
       '</div>' +
 
       // ── 季度配置 ──
-      '<div class="settings-group">' +
-        '<div class="settings-group-title">季度配置</div>' +
-        '<div class="settings-card">' +
+      '<div class="settings-group" data-collapse="quarters">' +
+        '<div class="settings-group-title settings-group-title--toggler" onclick="toggleSettingsCollapse(this)"><span class="settings-collapse-arrow">▸</span> 季度配置</div>' +
+        '<div class="settings-card settings-card--collapsible">' +
           (quarterRows || '<div class="settings-row"><span class="settings-label" style="color:var(--text-muted)">使用默认季度</span></div>') +
           '<div class="settings-add-btn" onclick="addQuarter()">+ 添加季度</div>' +
         '</div>' +
       '</div>' +
 
       // ── 数据管理 ──
-      '<div class="settings-group">' +
-        '<div class="settings-group-title">数据管理</div>' +
-        '<div class="settings-card">' +
+      '<div class="settings-group" data-collapse="data">' +
+        '<div class="settings-group-title settings-group-title--toggler" onclick="toggleSettingsCollapse(this)"><span class="settings-collapse-arrow">▸</span> 数据管理</div>' +
+        '<div class="settings-card settings-card--collapsible">' +
           '<div class="settings-row settings-row--tap" onclick="exportJSON()">' +
             '<span class="settings-label">导出数据</span>' +
             '<span class="settings-chevron">›</span>' +
@@ -266,10 +266,12 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">工时记录</div>' +
-        '<div class="settings-about-version">v0.5.5</div>' +
+        '<div class="settings-about-version">v0.5.7</div>' +
       '</div>' +
 
     '</div>';
+
+  requestAnimationFrame(initSettingsCollapse);
 }
 function openAvatarPicker() {
   var ov = document.getElementById('avatarPickerOverlay');
@@ -354,9 +356,65 @@ function removeCommonSlot(i){WHT.showConfirm('\u786e\u8ba4\u5220\u9664','\u786e\
 function addQuarter(){WHT.haptic('medium');var s=WHT.getUserSettings();s.quarterConfig.push({name:'Q'+(s.quarterConfig.length+1),months:[]});WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function removeQuarter(i){WHT.showConfirm('\u786e\u8ba4\u5220\u9664','\u786e\u5b9a\u5220\u9664\u8fd9\u4e2a\u5b63\u5ea6\u914d\u7f6e\u5417\uff1f',function(){WHT.haptic('delete');var s=WHT.getUserSettings();s.quarterConfig.splice(i,1);WHT.saveUserSettings(s);WHT.renderCurrentTab(true)})}
 
+// ── 设置页折叠 ──
+function getCollapseKey(){
+  return 'wht-collapse-' + (st.currentUser ? st.currentUser.id : 'default');
+}
+function toggleSettingsCollapse(titleEl){
+  var card = titleEl.parentElement.querySelector('.settings-card--collapsible');
+  if (!card) return;
+  var isOpen = titleEl.classList.contains('open');
+  if (isOpen) {
+    titleEl.classList.remove('open');
+    card.classList.add('collapsed');
+  } else {
+    titleEl.classList.add('open');
+    card.classList.remove('collapsed');
+  }
+  saveCollapseState();
+}
+function saveCollapseState(){
+  var state = {};
+  var groups = document.querySelectorAll('.settings-group[data-collapse]');
+  groups.forEach(function(g){
+    state[g.getAttribute('data-collapse')] = g.querySelector('.settings-group-title--toggler').classList.contains('open');
+  });
+  localStorage.setItem(getCollapseKey(), JSON.stringify(state));
+}
+function initSettingsCollapse(){
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(getCollapseKey()) || '{}'); } catch(e) {}
+  var groups = document.querySelectorAll('.settings-group[data-collapse]');
+  groups.forEach(function(g){
+    var key = g.getAttribute('data-collapse');
+    var title = g.querySelector('.settings-group-title--toggler');
+    var card = g.querySelector('.settings-card--collapsible');
+    if (!title || !card) return;
+    // 默认展开，除非 localStorage 明确记录为 false
+    if (state[key] === false) {
+      title.classList.remove('open');
+      card.classList.add('collapsed');
+    } else {
+      title.classList.add('open');
+      card.classList.remove('collapsed');
+    }
+  });
+}
+
 // Data Import/Export
-function exportJSON(){WHT.haptic('medium');var d={users:st.users,exportDate:new Date().toISOString(),data:{}};st.users.forEach(function(u){d.data[u.id]={nickname:u.nickname,settings:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_settings',{}),records:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_records',[]),compTime:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_compTime',[]),modes:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_modes',[])}});var b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});var url=URL.createObjectURL(b);var a=document.createElement('a');a.href=url;a.download='work-hours-'+WHT.today()+'.json';a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000)}
-function exportCSV(){WHT.haptic('medium');var r=WHT.getUserRecords();var csv=[['日期','开始时间','结束时间','工时','节假日','备注']].concat(r.map(function(x){return[x.date,x.startTime,x.endTime,x.hours,x.isHoliday?'是':'否',x.note||'']})).map(function(x){return x.join(',')}).join('\n');var b=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});var url=URL.createObjectURL(b);var a=document.createElement('a');a.href=url;a.download='work-hours-'+WHT.today()+'.csv';a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000)}
+function exportJSON(){WHT.haptic('medium');var d={users:st.users,exportDate:new Date().toISOString(),data:{}};st.users.forEach(function(u){d.data[u.id]={nickname:u.nickname,settings:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_settings',{}),records:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_records',[]),compTime:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_compTime',[]),modes:WHT.DataStore.get(WHT.APP_PREFIX+u.id+'_modes',[])}});var jsonStr=JSON.stringify(d,null,2);var blob=new Blob([jsonStr],{type:'application/json'});var filename='work-hours-'+WHT.today()+'.json';shareOrDownload(blob,filename,'application/json',jsonStr)}
+function exportCSV(){WHT.haptic('medium');var r=WHT.getUserRecords();var csv=[['\u65e5\u671f','\u5f00\u59cb\u65f6\u95f4','\u7ed3\u675f\u65f6\u95f4','\u5de5\u65f6','\u8282\u5047\u65e5','\u5907\u6ce8']].concat(r.map(function(x){return[x.date,x.startTime,x.endTime,x.hours,x.isHoliday?'\u662f':'\u5426',x.note||'']})).map(function(x){return x.join(',')}).join('\n');var csvContent='\ufeff'+csv;var blob=new Blob([csvContent],{type:'text/csv;charset=utf-8'});var filename='work-hours-'+WHT.today()+'.csv';shareOrDownload(blob,filename,'text/csv',csvContent)}
+function shareOrDownload(blob,filename,mime,fallbackText){
+  // 优先 Web Share API（Android / 现代浏览器）
+  if(typeof navigator!=='undefined'&&navigator.share&&navigator.canShare){var file=new File([blob],filename,{type:mime});if(navigator.canShare({files:[file]})){navigator.share({files:[file],title:'\u5bfc\u51fa\u5de5\u65f6\u6570\u636e'}).catch(function(){});return}}
+  // 兜底：显示内容让用户手动复制
+  WHT.haptic('medium');
+  document.getElementById('userModal').querySelector('.modal-title').textContent='\u5bfc\u51fa\u6570\u636e';
+  document.getElementById('userModal').querySelector('.modal-sheet').innerHTML='<div class="modal-handle"></div><div class="modal-title">\u5bfc\u51fa\u6570\u636e</div><div style="padding:12px;background:var(--bg-page);border-radius:8px;max-height:50vh;overflow:auto"><pre style="font-size:11px;margin:0;white-space:pre-wrap;word-break:break-all">'+WHT.escapeHtml(fallbackText).substring(0,8000)+'</pre></div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="navigator.clipboard.writeText(document.querySelector(\'#userModal pre\').textContent);WHT.showToast(\'\u5df2\u590d\u5236\');document.getElementById(\'userModal\').classList.remove(\'active\')">\u590d\u5236\u5168\u90e8</button><button class="btn" style="flex:1" onclick="document.getElementById(\'userModal\').classList.remove(\'active\')">\u5173\u95ed</button></div>';
+  document.getElementById('userModal').classList.add('active');
+  // 同时尝试旧版下载（电脑浏览器）
+  try{var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url)},1000)}catch(e){}
+}
 function validateImportData(d){
   if(!d||typeof d!=='object')return'数据格式无效';
   if(!Array.isArray(d.users))return'用户数据格式无效';
@@ -400,6 +458,8 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
   WHT.removeCommonSlot = removeCommonSlot;
   WHT.addQuarter = addQuarter;
   WHT.removeQuarter = removeQuarter;
+  WHT.toggleSettingsCollapse = toggleSettingsCollapse;
+  WHT.initSettingsCollapse = initSettingsCollapse;
   WHT.exportJSON = exportJSON;
   WHT.exportCSV = exportCSV;
   WHT.validateImportData = validateImportData;
@@ -422,7 +482,7 @@ function clearAllData(){WHT.showConfirm('清除数据','确定要清除当前用
     'toggleDarkMode','applyTheme','applyStyle','toggleStyle','getStyleLabel',
     'renderModeBar','switchMode','addNewMode','switchTab','renderCurrentTab','renderSettingsPage',
     'updateSetting','updateFlextimeSetting','renameMode','deleteMode',
-    'addCommonSlot','editCommonSlot','saveCommonSlotEdit','removeCommonSlot','addQuarter','editQuarter','saveQuarterEdit','removeQuarter',
+    'addCommonSlot','editCommonSlot','saveCommonSlotEdit','removeCommonSlot','addQuarter','editQuarter','saveQuarterEdit','removeQuarter','toggleSettingsCollapse',
     'exportJSON','exportCSV','validateImportData','handleFileImport','clearAllData',
     'openAvatarPicker','closeAvatarPicker','updateAvatar','uploadAvatar',
     'showEditProfile','cancelEditProfile','saveProfile',

@@ -1532,7 +1532,8 @@
 
 /* ========== 设置页 · iOS 风格 ========== */
 .settings-nav { display: none; }
-.settings-content { padding-bottom: var(--space-12); }
+.settings-content { padding-bottom: var(--space-4); }
+.settings-content > .settings-group:last-child { margin-bottom: 0; }
 .settings-category { display: block !important; }
 
 .settings-group {
@@ -1548,6 +1549,33 @@
   border-radius: var(--radius-lg);
   margin: 0 16px;
   overflow: hidden;
+}
+/* 可折叠区块（常用时段 / 季度配置） */
+.settings-group-title--toggler {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.settings-collapse-arrow {
+  display: inline-block;
+  transition: transform 0.25s ease;
+  font-size: 10px;
+  width: 12px;
+  color: var(--text-muted);
+}
+.settings-group-title--toggler.open .settings-collapse-arrow {
+  transform: rotate(90deg);
+}
+.settings-card--collapsible {
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), margin-top 0.35s ease;
+  max-height: 600px;
+  overflow: hidden;
+}
+.settings-card--collapsible.collapsed {
+  max-height: 0;
+  margin-top: 0;
 }
 [data-style="warm"] .settings-card {
   box-shadow: var(--neu-sm);

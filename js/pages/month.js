@@ -15,7 +15,7 @@
     var md = WHT.getUserModes().find(function(x) { return x.id === st.currentMode; });
     var mr = r.filter(function(x) { return x.date.startsWith(ms); });
     var th = mr.reduce(function(a, x) { return a + x.hours; }, 0);
-    var hh = mr.filter(function(x) { return x.isHoliday; }).reduce(function(a, x) { return a + x.hours; }, 0);
+    var hh = mr.filter(function(x) { return WHT.isHoliday(x.date); }).reduce(function(a, x) { return a + x.hours; }, 0);
     th -= hh; // 节假日工时不计入总工时
     var workDays;
     if (md && md.type === 'flextime' && s.flextimeConfig && s.flextimeConfig.startDate) {
@@ -54,7 +54,7 @@
     var offset = circumference - (pg / 100) * circumference;
     var ringClass = isEmpty ? 'empty' : pg >= 75 ? 'good' : pg >= 50 ? 'ok' : 'bad';
 
-    var monthWorkedDays = mr.filter(function(x) { return !x.isHoliday; }).length;
+    var monthWorkedDays = mr.filter(function(x) { return !WHT.isHoliday(x.date) && x.status !== 'working'; }).length;
     var monthAvg = monthWorkedDays > 0 ? (th / monthWorkedDays) : 0;
 
     var statsHtml = '<div class="quarter-stats-grid">' +
@@ -83,7 +83,7 @@
         '</div>' :
         '<div class="quarter-stat-card">' +
           '<div class="quarter-stat-icon">💰</div>' +
-          '<div class="quarter-stat-value">' + (hf === 0 ? '<span class="empty-text">¥0</span>' : '¥' + hf) + '</div>' +
+          '<div class="quarter-stat-value">' + (hf === 0 ? '<span class="empty-text">¥0.00</span>' : '¥' + hf.toFixed(2)) + '</div>' +
           '<div class="quarter-stat-label">加班费(元)</div>' +
         '</div>'
       ) +

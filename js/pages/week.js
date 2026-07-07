@@ -9,7 +9,7 @@
     var d = WHT.getWeekDays(st.weekOffset);
     var r = WHT.getUserRecords();
     var s = WHT.getUserSettings();
-    var ws = d.reduce(function(a, x) { var rec = r.find(function(y) { return y.date === x; }); if (rec && !rec.isHoliday) { a.total += rec.hours; a.days++; } return a; }, { total: 0, days: 0 });
+    var ws = d.reduce(function(a, x) { var rec = r.find(function(y) { return y.date === x; }); if (rec && !WHT.isHoliday(x) && rec.status !== 'working') { a.total += rec.hours; a.days++; } return a; }, { total: 0, days: 0 });
     var wS = new Date(d[0] + 'T00:00:00');
     var wE = new Date(d[6] + 'T00:00:00');
     var md = WHT.getUserModes().find(function(x) { return x.id === st.currentMode; });
@@ -39,7 +39,7 @@
     var circumference = 2 * Math.PI * 80 * 180 / 360;
     var offset = isEmpty ? circumference : circumference * (1 - pct / 100);
 
-    var hh = r.filter(function(x) { return x.isHoliday && d.includes(x.date); }).reduce(function(a, x) { return a + x.hours; }, 0);
+    var hh = r.filter(function(x) { return WHT.isHoliday(x.date) && d.includes(x.date); }).reduce(function(a, x) { return a + x.hours; }, 0);
     var hf = hh * (s.holidayRate || 0);
 
     c.innerHTML = '<div class="week-nav">' +
@@ -54,7 +54,7 @@
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">🎯</div><div class="quarter-stat-value">' + t + 'h</div><div class="quarter-stat-label">目标(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">✅</div><div class="quarter-stat-value">' + ws.total.toFixed(1) + 'h</div><div class="quarter-stat-label">实际(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">' + (diff >= 0 ? '📈' : '📉') + '</div><div class="quarter-stat-value" style="color:' + (diff >= 0 ? 'var(--color-success)' : 'var(--color-danger)') + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'h</div><div class="quarter-stat-label">差额(h)</div></div>' +
-      '<div class="quarter-stat-card"><div class="quarter-stat-icon">💰</div><div class="quarter-stat-value">' + (hf === 0 ? '<span class="empty-text">¥0</span>' : '¥' + hf) + '</div><div class="quarter-stat-label">加班费(元)</div></div>' +
+      '<div class="quarter-stat-card"><div class="quarter-stat-icon">💰</div><div class="quarter-stat-value">' + (hf === 0 ? '<span class="empty-text">¥0.00</span>' : '¥' + hf.toFixed(2)) + '</div><div class="quarter-stat-label">加班费(元)</div></div>' +
     '</div>' +
     '<div class="week-days">' +
       d.map(function(x) {

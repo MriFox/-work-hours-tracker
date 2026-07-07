@@ -33,13 +33,13 @@
         return w >= 1 && w <= 5 && !WHT.isHoliday(x);
       });
       var mtar = s.standardHours * workDays.length;
-      var hh = mr.filter(function(x) { return x.isHoliday; }).reduce(function(a, x) { return a + x.hours; }, 0);
+      var hh = mr.filter(function(x) { return WHT.isHoliday(x.date); }).reduce(function(a, x) { return a + x.hours; }, 0);
       mt -= hh; // 节假日工时不计入总工时
       qT += mt;
       qTar += mtar;
       qHF += hh * (s.holidayRate || 0);
       qDays += workDays.length;
-      qWorkedDays += mr.filter(function(x) { return !x.isHoliday; }).length;
+      qWorkedDays += mr.filter(function(x) { return !WHT.isHoliday(x.date) && x.status !== 'working'; }).length;
       return { name: m + '月', total: mt, target: mtar, pct: mtar > 0 ? Math.min(100, (mt / mtar) * 100) : 0 };
     });
 
@@ -59,7 +59,7 @@
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">🎯</div><div class="quarter-stat-value">' + (isEmpty ? '<span class="empty-text">待开始</span>' : qTar + 'h') + '</div><div class="quarter-stat-label">目标(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">✅</div><div class="quarter-stat-value">' + (isEmpty ? '<span class="empty-text">待开始</span>' : qT.toFixed(1) + 'h') + '</div><div class="quarter-stat-label">实际(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">' + (isEmpty ? '📊' : diff >= 0 ? '📈' : '📉') + '</div><div class="quarter-stat-value" style="color:' + (diff >= 0 ? 'var(--color-success)' : 'var(--color-danger)') + '">' + (isEmpty ? '<span class="empty-text">待开始</span>' : (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'h') + '</div><div class="quarter-stat-label">差额(h)</div></div>' +
-      '<div class="quarter-stat-card"><div class="quarter-stat-icon">💰</div><div class="quarter-stat-value">' + (qHF === 0 ? '<span class="empty-text">¥0</span>' : '¥' + qHF) + '</div><div class="quarter-stat-label">加班费(元)</div></div>' +
+      '<div class="quarter-stat-card"><div class="quarter-stat-icon">💰</div><div class="quarter-stat-value">' + (qHF === 0 ? '<span class="empty-text">¥0.00</span>' : '¥' + qHF.toFixed(2)) + '</div><div class="quarter-stat-label">加班费(元)</div></div>' +
     '</div>';
 
     var ringHtml = '<div class="quarter-ring-container">' +
