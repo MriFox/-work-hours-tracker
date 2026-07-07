@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>纯函数测试 — WHT Utils</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; max-width: 680px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .summary { font-size: 13px; color: #666; margin-bottom: 16px; }
+  .result { padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; font-size: 13px; font-family: monospace; }
+  .pass { background: #e6f4ea; color: #1e7e34; }
+  .fail { background: #fce8e8; color: #c0392b; }
+  .bar { margin: 16px 0; font-size: 16px; font-weight: 700; }
+  .bar.green { color: #1e7e34; }
+  .bar.red { color: #c0392b; }
+</style>
+</head>
+<body>
+
+<h1>🧪 纯函数测试</h1>
+<div class="summary" id="summary">运行中...</div>
+<div id="results"></div>
+<div class="bar" id="final"></div>
+
+<script src="../js/utils.js"></script>
+<script src="../js/state.js"></script>
+<script>
+(function() {
+  var WHT = window.WHT;
+  var passed = 0, failed = 0;
+  var el = document.getElementById('results');
+
+  function test(name, fn) {
+    try {
+      fn();
+      passed++;
+      el.innerHTML += '<div class="result pass">✅ ' + name + '</div>';
+    } catch(e) {
+      failed++;
+      el.innerHTML += '<div class="result fail">❌ ' + name + '<br>   → ' + e.message.replace(/\n/g,'<br>   → ') + '</div>';
+    }
+  }
+
+  function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); }
+  function eq(a, b, msg) { if (a !== b) throw new Error((msg || '') + ' 期望 ' + JSON.stringify(b) + '，实际 ' + JSON.stringify(a)); }
+
+  // ── calculateHours ──
+  test('calculateHours 正常计算', function() {
+    eq(WHT.calculateHours('09:00', '18:00'), 9);
+    eq(WHT.calculateHours('08:30', '17:30'), 9);
+    eq(WHT.calculateHours('09:00', '12:30'), 3.5);
+  });
+
+  test('calculateHours 跨天', function() {
+    eq(WHT.calculateHours('22:00', '06:00'), 8);
+    eq(WHT.calculateHours('18:00', '02:30'), 8.5);
+  });
+
+  test('calculateHours 无效输入返回 0', function() {
+    eq(WHT.calculateHours('', '18:00'), 0);
+    eq(WHT.calculateHours('09:00', ''), 0);
+    eq(WHT.calculateHours(null, '18:00'), 0);
+    eq(WHT.calculateHours('abc', 'def'), 0);
+    eq(WHT.calculateHours(undefined, undefined), 0);
+    eq(WHT.calculateHours('09:00:00', '18:00'), 0); // 无效格式
+  });
+
+  // ── getDayOfWeek ──
+  test('getDayOfWeek', function() {
+    eq(WHT.getDayOfWeek('2026-07-06'), 1, '周一');   // 2026-07-06 is Monday
+    eq(WHT.getDayOfWeek('2026-07-12'), 0, '周日');   // Sunday
+    eq(WHT.getDayOfWeek('2026-07-11'), 6, '周六');   // Saturday
+  });
+
+  // ── isWeekend ──
+  test('isWeekend', function() {
+    assert(WHT.isWeekend('2026-07-11'), '周六应为周末');
+    assert(WHT.isWeekend('2026-07-12'), '周日应为周末');
+    assert(!WHT.isWeekend('2026-07-06'), '周一不应为周末');
+    assert(!WHT.isWeekend('2026-07-10'), '周五不应为周末');
+  });
+
+  // ── formatDate ──
+  test('formatDate', function() {
+    eq(WHT.formatDate('2026-07-06'), '7月6日 周一');
+    eq(WHT.formatDate('2026-01-01'), '1月1日 周四');
+    eq(WHT.formatDate('2026-12-25'), '12月25日 周五');
+  });
+
+  // ── formatDateShort ──
+  test('formatDateShort', function() {
+    eq(WHT.formatDateShort('2026-07-06'), '7/6');
+    eq(WHT.formatDateShort('2026-12-31'), '12/31');
+  });
+
+  // ── getProgressClass ──
+  test('getProgressClass 各档位', function() {
+    eq(WHT.getProgressClass(100), 'good');
+    eq(WHT.getProgressClass(85), 'ok');
+    eq(WHT.getProgressClass(75), 'ok');
+    eq(WHT.getProgressClass(50), 'warn');
+    eq(WHT.getProgressClass(25), 'bad');
+    eq(WHT.getProgressClass(0), 'bad');
+  });
+
+  // ── genId ──
+  test('genId 生成唯一 ID', function() {
+    var a = WHT.genId();
+    var b = WHT.genId();
+    assert(typeof a === 'string' && a.length > 0, 'ID 应为非空字符串');
+    assert(a !== b, '两次生成应不同');
+  });
+
+  // ── escapeHtml ──
+  test('escapeHtml XSS 防护', function() {
+    eq(WHT.escapeHtml('<script>alert("xss")</script>'), '&lt;script&gt;alert("xss")&lt;/script&gt;');
+    eq(WHT.escapeHtml('foo & bar'), 'foo &amp; bar');
+    eq(WHT.escapeHtml('"quoted"'), '&quot;quoted&quot;');
+    eq(WHT.escapeHtml('正常文本'), '正常文本');
+  });
+
+  // ── isHoliday ──
+  test('isHoliday 法定假日', function() {
+    WHT.state.currentUser = { id: 'test' };
+    // mock getUserSettings
+    WHT.getUserSettings = function() { return {}; };
+    assert(WHT.isHoliday('2026-01-01'), '元旦应为假日');
+    assert(WHT.isHoliday('2026-05-01'), '劳动节应为假日');
+    assert(!WHT.isHoliday('2026-07-07'), '普通日期不应为假日');
+    WHT.state.currentUser = null;
+  });
+
+  // ── getMonthDays ──
+  test('getMonthDays', function() {
+    var days = WHT.getMonthDays(2026, 6); // 7月
+    assert(Array.isArray(days), '应返回数组');
+    eq(days.length, 31);
+    eq(days[0], '2026-07-01');
+    eq(days[30], '2026-07-31');
+
+    var feb = WHT.getMonthDays(2026, 1); // 2月(非闰年)
+    eq(feb.length, 28);
+  });
+
+  // ── getWeekDays ──
+  test('getWeekDays 返回 7 天', function() {
+    var days = WHT.getWeekDays(0);
+    eq(days.length, 7);
+    // 本周周一是第一个元素，周日是最后一个
+    eq(WHT.getDayOfWeek(days[0]), 1, '第一个应为周一');
+    eq(WHT.getDayOfWeek(days[6]), 0, '最后一个应为周日');
+  });
+
+  // ── 结果 ──
+  var total = passed + failed;
+  document.getElementById('summary').textContent = total + ' 个测试，通过 ' + passed + '，失败 ' + failed;
+  var bar = document.getElementById('final');
+  if (failed === 0) {
+    bar.textContent = '🎉 全部通过！';
+    bar.className = 'bar green';
+  } else {
+    bar.textContent = '⚠️ ' + failed + ' 个失败';
+    bar.className = 'bar red';
+  }
+})();
+</script>
+
+</body>
+</html>
