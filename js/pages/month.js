@@ -6,8 +6,9 @@
 
   function renderMonthPage(c) {
     var n = new Date();
-    var y = n.getFullYear() + Math.floor(st.monthOffset / 12);
-    var m = ((n.getMonth() + st.monthOffset) % 12 + 12) % 12;
+    var totalMonths = n.getFullYear() * 12 + n.getMonth() + st.monthOffset;
+    var y = Math.floor(totalMonths / 12);
+    var m = ((totalMonths % 12) + 12) % 12;
     var ms = y + '-' + String(m + 1).padStart(2, '0');
     var d = WHT.getMonthDays(y, m);
     var r = WHT.getUserRecords();
@@ -27,7 +28,7 @@
         if (w >= 1 && w <= 5) return true;
         if (w === 6) {
           var dm = new Date(x + 'T00:00:00'); var dadj = dm.getDay(); if (dadj === 0) dadj = 7; dm.setDate(dm.getDate() - (dadj - 1));
-          var wd = Math.round((dm - sm) / 86400000 / 7);
+          var wd = Math.floor((dm - sm) / 86400000 / 7);
           return (wd % 2 === 0) ? fc.startIsBigWeek : !fc.startIsBigWeek;
         }
         return false;
@@ -108,7 +109,7 @@
 
     var navHtml = '<div class="month-nav">' +
       '<button class="month-nav-btn" onclick="changeMonth(-1)">&#9664;</button>' +
-      '<div class="month-nav-title">' + y + '年' + (m + 1) + '月</div>' +
+      '<div class="month-nav-title" onclick="openMonthPicker()" style="cursor:pointer;-webkit-tap-highlight-color:transparent">' + y + '年' + (m + 1) + '月</div>' +
       '<div class="month-nav-right">' +
         (st.monthOffset !== 0 ? '<button class="month-nav-today" onclick="goToCurrentMonth()">本月</button>' : '') +
         '<button class="month-nav-btn" onclick="changeMonth(1)">&#9654;</button>' +
@@ -170,11 +171,12 @@
     var sd = WHT.getUserSettings();
     var isMarkedHoliday = sd.holidays && sd.holidays.indexOf(d) >= 0;
     if (r) {
+      var isWorking = r.status === 'working' || (!r.endTime && r.startTime);
       el.innerHTML = '<div class="bento week-detail">' +
         '<div class="week-detail-row"><span class="week-detail-label">日期</span><span class="week-detail-value">' + WHT.formatDate(r.date) + '</span></div>' +
         '<div class="week-detail-row"><span class="week-detail-label">上班</span><span class="week-detail-value">' + WHT.escapeHtml(r.startTime) + '</span></div>' +
-        '<div class="week-detail-row"><span class="week-detail-label">下班</span><span class="week-detail-value">' + WHT.escapeHtml(r.endTime) + '</span></div>' +
-        '<div class="week-detail-row"><span class="week-detail-label">工时</span><span class="week-detail-value">' + r.hours + 'h</span></div>' +
+        '<div class="week-detail-row"><span class="week-detail-label">下班</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">等待中...</span>' : WHT.escapeHtml(r.endTime)) + '</span></div>' +
+        '<div class="week-detail-row"><span class="week-detail-label">工时</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">进行中</span>' : r.hours + 'h') + '</span></div>' +
         '<div class="week-detail-row"><span class="week-detail-label">类型</span><span class="week-detail-value">' + (r.isHoliday ? '节假日' : WHT.isWeekend(r.date) ? '周末' : '工作日') + '</span></div>' +
         (r.note ? '<div class="week-detail-row"><span class="week-detail-label">备注</span><span class="week-detail-value">' + WHT.escapeHtml(r.note) + '</span></div>' : '') +
         '<div class="week-detail-row" onclick="event.stopPropagation();toggleHoliday(\'' + d + '\')" style="cursor:pointer"><span class="week-detail-label">标记节假日</span><div class="ios-toggle' + (isMarkedHoliday ? ' active' : '') + '" onclick="event.stopPropagation();toggleHoliday(\'' + d + '\')"></div></div>' +
@@ -188,9 +190,73 @@
   function changeMonth(dir) { WHT.haptic('light'); st.monthOffset += dir; st.selectedDay = null; WHT.renderCurrentTab(true); }
   function goToCurrentMonth() { WHT.haptic('medium'); st.monthOffset = 0; st.selectedDay = null; WHT.renderCurrentTab(true); }
 
+  // ── 月份快速选择器 ──
+  var mpYear = 0;
+
+  function openMonthPicker() {
+    WHT.haptic('light');
+    var n = new Date();
+    var totalMonths = n.getFullYear() * 12 + n.getMonth() + st.monthOffset;
+    mpYear = Math.floor(totalMonths / 12);
+    renderMonthPicker();
+    document.getElementById('monthPickerOverlay').classList.add('active');
+  }
+
+  function closeMonthPicker() {
+    document.getElementById('monthPickerOverlay').classList.remove('active');
+  }
+
+  function renderMonthPicker() {
+    document.getElementById('monthPickerYear').textContent = mpYear + '年';
+    var n = new Date();
+    var curTotalMonths = n.getFullYear() * 12 + n.getMonth() + st.monthOffset;
+    var curYear = Math.floor(curTotalMonths / 12);
+    var curMonth = ((curTotalMonths % 12) + 12) % 12;
+    var grid = '';
+    for (var i = 0; i < 12; i++) {
+      var cls = 'picker-month-cell';
+      if (mpYear === curYear && i === curMonth) cls += ' selected';
+      if (i === n.getMonth() && mpYear === n.getFullYear()) cls += ' current';
+      grid += '<button class="' + cls + '" onclick="selectPickerMonth(' + i + ')">' + (i + 1) + '月</button>';
+    }
+    document.getElementById('monthPickerGrid').innerHTML = grid;
+  }
+
+  function changePickerYear(dir) {
+    WHT.haptic('light');
+    mpYear += dir;
+    renderMonthPicker();
+  }
+
+  function selectPickerMonth(m) {
+    WHT.haptic('medium');
+    var n = new Date();
+    st.monthOffset = (mpYear - n.getFullYear()) * 12 + (m - n.getMonth());
+    st.selectedDay = null;
+    closeMonthPicker();
+    WHT.renderCurrentTab(true);
+  }
+
+  function confirmMonthPicker() {
+    var grid = document.getElementById('monthPickerGrid');
+    var selected = grid.querySelector('.picker-month-cell.selected');
+    if (selected) {
+      var monthText = selected.textContent;
+      var m = parseInt(monthText) - 1;
+      selectPickerMonth(m);
+    } else {
+      closeMonthPicker();
+    }
+  }
+
   WHT.renderMonthPage = renderMonthPage;
   WHT.selectMonthDay = selectMonthDay;
   WHT.changeMonth = changeMonth;
   WHT.goToCurrentMonth = goToCurrentMonth;
+  WHT.openMonthPicker = openMonthPicker;
+  WHT.closeMonthPicker = closeMonthPicker;
+  WHT.changePickerYear = changePickerYear;
+  WHT.selectPickerMonth = selectPickerMonth;
+  WHT.confirmMonthPicker = confirmMonthPicker;
 
 })();

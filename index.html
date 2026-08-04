@@ -74,7 +74,7 @@
         </div>
       </div>
       <button class="btn btn-primary login-btn" id="loginBtn" disabled onclick="handleLogin()">进入</button>
-      <button class="login-reset" onclick="showConfirm('重置数据', '清除所有数据？此操作不可恢复！', function(){DataStore.clear();location.reload()})">重置数据</button>
+      <button class="login-reset" onclick="showConfirm('重置数据', '清除所有数据？此操作不可恢复！', function(){WHT.DataStore.clear();location.reload()})">重置数据</button>
     </div>
   </div>
 </div>
@@ -147,6 +147,22 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileImport(event)">
+
+<!-- 月份选择器 -->
+<div class="picker-overlay" id="monthPickerOverlay" onclick="if(event.target===this)closeMonthPicker()">
+  <div class="picker-sheet">
+    <div class="picker-header">
+      <button class="picker-cancel" onclick="closeMonthPicker()">取消</button>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="picker-month-btn" onclick="changePickerYear(-1)">‹</button>
+        <div class="picker-title" id="monthPickerYear">2026</div>
+        <button class="picker-month-btn" onclick="changePickerYear(1)">›</button>
+      </div>
+      <button class="picker-confirm" onclick="confirmMonthPicker()">确定</button>
+    </div>
+    <div class="picker-months-grid" id="monthPickerGrid"></div>
+  </div>
+</div>
 
 <!-- 自定义日期选择器 -->
 <div class="picker-overlay" id="datePickerOverlay" onclick="if(event.target===this)confirmDatePicker()">

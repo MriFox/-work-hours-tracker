@@ -18,7 +18,7 @@
       var fc = s.flextimeConfig;
       var wm = new Date(d[0] + 'T00:00:00'); var adj = wm.getDay(); if (adj === 0) adj = 7; wm.setDate(wm.getDate() - (adj - 1));
       var sm = new Date(fc.startDate + 'T00:00:00'); adj = sm.getDay(); if (adj === 0) adj = 7; sm.setDate(sm.getDate() - (adj - 1));
-      var wkDiff = Math.round((wm - sm) / 86400000 / 7);
+      var wkDiff = Math.floor((wm - sm) / 86400000 / 7);
       var isBig = (wkDiff % 2 === 0) ? fc.startIsBigWeek : !fc.startIsBigWeek;
       workDays = d.filter(function(x) { var w = WHT.getDayOfWeek(x); return !WHT.isHoliday(x) && (w >= 1 && w <= 5 || (w === 6 && isBig)); }).length;
     } else {

@@ -28,6 +28,8 @@ window.addEventListener('popstate',function(e){
   if(datePicker&&datePicker.classList.contains('active')){WHT.closeDatePicker();history.pushState({tab:st.currentTab},'' ,'#'+st.currentTab);return}
   var timePicker=document.getElementById('timePickerOverlay');
   if(timePicker&&timePicker.classList.contains('active')){WHT.closeTimePicker();history.pushState({tab:st.currentTab},'' ,'#'+st.currentTab);return}
+  var monthPicker=document.getElementById('monthPickerOverlay');
+  if(monthPicker&&monthPicker.classList.contains('active')){WHT.closeMonthPicker();history.pushState({tab:st.currentTab},'' ,'#'+st.currentTab);return}
   // 然后处理 tab 切换
   if(e.state&&e.state.tab){
     st.currentTab=e.state.tab;
@@ -86,10 +88,10 @@ function renderCurrentTab(ps){
     'showWizardPage','renderWizardStep','cancelWizard','wizardPrev','wizardNext','selectWizardOption',
     'punchIn','punchOut','adjustPunchTime','applyPunchTimeAdjust','renderRecordPage','startWorkingTimer','stopWorkingTimer',
     'toggleManualEntry','fillTimeSlotQuick','copyYesterdayQuick','deleteTodayRecord','saveRecord','calcRecordHours',
-    'editRecord','deleteRecord','toggleCompList','showAddCompTime','saveCompTime','updateCompTime','deleteCompTime',
+    'editRecord','deleteRecord','toggleCompList','showAddCompTime','saveCompTime','editCompTime','updateCompTime','deleteCompTime',
     'toggleNote','toggleRecordList','loadMoreRecords','autoEarnCompTime','onRecordDateChange',
     'renderWeekPage','selectWeekDay','changeWeek','goToCurrentWeek',
-    'renderMonthPage','selectMonthDay','changeMonth','goToCurrentMonth',
+    'renderMonthPage','selectMonthDay','changeMonth','goToCurrentMonth','openMonthPicker','closeMonthPicker','changePickerYear','selectPickerMonth','confirmMonthPicker',
     'renderQuarterPage','switchQuarter','changeQuarterYear',
     'openDatePicker','closeDatePicker','renderDatePicker','changePickerMonth','confirmDatePicker','selectDateDay',
     'openTimePicker','closeTimePicker','renderTimePicker','confirmTimePicker','selectHour','selectMinute','selectNow',
@@ -135,6 +137,7 @@ function renderCurrentTab(ps){
     st.wizardData = {};
     st.wizardStep = 0;
   }
-  document.querySelector('.mode-card[data-type="civil"]').classList.add('selected');
+  var civilCard = document.querySelector('.mode-card[data-type="civil"]');
+  if (civilCard) civilCard.classList.add('selected');
 
 })();

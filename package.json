@@ -1,6 +1,6 @@
 {
   "name": "work-hours-tracker",
-  "version": "0.4",
+  "version": "0.5.8",
   "description": "轻量级工时记录工具 - PWA",
   "main": "index.html",
   "scripts": {

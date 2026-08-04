@@ -1,0 +1,8 @@
+{
+  "appId": "com.workhours.tracker",
+  "appName": "工时记录",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

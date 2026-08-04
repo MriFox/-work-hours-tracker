@@ -19,7 +19,7 @@
     var icons = { success: '\u2713', error: '\u2717', info: '\u2139', warning: '\u26a0' };
     var el = document.createElement('div');
     el.className = 'toast toast-' + type;
-    el.innerHTML = '<span class="toast-icon">' + (icons[type] || icons.info) + '</span><span class="toast-msg">' + msg + '</span>';
+    el.innerHTML = '<span class="toast-icon">' + (icons[type] || icons.info) + '</span><span class="toast-msg">' + WHT.escapeHtml(msg) + '</span>';
     el.addEventListener('click', function() {
       el.classList.add('removing');
       setTimeout(function() { el.remove(); }, 200);
@@ -50,7 +50,7 @@
     var icons = { success: '\u2713', error: '\u2717', info: '\u2139', warning: '\u26a0' };
     var el = document.createElement('div');
     el.className = 'toast toast-' + type;
-    el.innerHTML = '<span class="toast-icon">' + (icons[type] || icons.info) + '</span><span class="toast-msg">' + msg + '</span><button class="toast-action">' + actionLabel + '</button>';
+    el.innerHTML = '<span class="toast-icon">' + (icons[type] || icons.info) + '</span><span class="toast-msg">' + WHT.escapeHtml(msg) + '</span><button class="toast-action">' + WHT.escapeHtml(actionLabel) + '</button>';
 
     var actionBtn = el.querySelector('.toast-action');
     actionBtn.addEventListener('click', function(e) {

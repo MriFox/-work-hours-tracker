@@ -10,6 +10,5 @@ www/
 .workbuddy/
 *.apk
 snap*.yaml
-*.png
 UX体验评估报告.html
 package-lock.json

@@ -161,3 +161,27 @@
 .time-now-btn:hover { background: var(--color-accent-light); }
 .time-now-btn:active { transform: scale(0.98); }
 .mt-12 { margin-top: 12px; }
+
+/* 月份选择器网格 */
+.picker-months-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+.picker-month-cell {
+  height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-full);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer; border: none;
+  background: none; color: var(--text-primary);
+  transition: background var(--transition-fast);
+}
+.picker-month-cell:hover { background: var(--bg-raised); }
+.picker-month-cell:active { transform: scale(0.9); background: var(--color-accent-light); }
+.picker-month-cell.current { color: var(--color-accent); font-weight: 600; }
+.picker-month-cell.selected {
+  background: var(--color-accent); color: var(--text-on-accent); font-weight: 600;
+}
+.picker-month-cell.selected:hover { background: var(--color-accent); }

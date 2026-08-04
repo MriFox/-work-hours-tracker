@@ -626,10 +626,12 @@ function autoEarnCompTime(date, hours) {
       var comp = WHT.getUserCompTime();
       // 检查今天是否已有 earn 记录，避免重复
       var todayEarn = comp.find(function(x) { return x.date === date && x.type === 'earn'; });
-      if (!todayEarn) {
+      if (todayEarn) {
+        todayEarn.hours = ot;
+      } else {
         comp.push({ id: WHT.genId(), date: date, type: 'earn', hours: ot, note: '每日加班累计' });
-        WHT.saveUserCompTime(comp);
       }
+      WHT.saveUserCompTime(comp);
     }
   }
 }
@@ -781,6 +783,7 @@ function deleteCompTime(id) {
   WHT.saveCompTime = saveCompTime;
   WHT.updateCompTime = updateCompTime;
   WHT.deleteCompTime = deleteCompTime;
+  WHT.editCompTime = editCompTime;
   WHT.toggleNote = toggleNote;
   WHT.toggleRecordList = toggleRecordList;
   WHT.loadMoreRecords = loadMoreRecords;
