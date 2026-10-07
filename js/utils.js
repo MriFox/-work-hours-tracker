@@ -204,10 +204,10 @@
     WHT.saveUserSettings(s);
   }
 
-  // 差额颜色：周期未过半时用中性色，避免刚开始就一片红
-  function diffColor(diff, passedRatio) {
-    if (diff >= 0) return 'var(--color-success)';
-    return (passedRatio >= 0.5) ? 'var(--color-danger)' : 'var(--text-secondary)';
+  // 差额颜色：负数一律红、正数一律绿。
+  // 曾在「周期未过半」时退回中性灰以降低压迫感，用户反馈看不习惯，已改回。
+  function diffColor(diff) {
+    return diff >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
   }
 
   // 按「已过时间比例」评估进度节奏，避免月初必然判红
@@ -438,9 +438,12 @@
 
     // 下班时间换算挂在更宽松的「到年底」口径上（季度内那个常常不可达）
     var clockScope = perYear > 0 ? '到年底' : (perQuarter > 0 ? '本季度内' : '');
-    var clockBase = perYear > 0 ? perYear : perQuarter;
+    var clockExtra = perYear > 0 ? perYear : perQuarter;
+    // 注意 perYear / perQuarter 是「额外要补的量」，不是当天总工时。
+    // 收工时间必须是 日常标准工时 + 额外量，否则会算出「9 点上班 11:40 就下班」这种错。
+    var clockTotal = clockExtra > 0 ? (s.standardHours || 8) + clockExtra : 0;
     var clockStart = clockStartOf();
-    var clockEnd = (clockBase > 0 && clockBase <= 16) ? addHoursToTime(clockStart, clockBase) : '';
+    var clockEnd = (clockTotal > 0 && clockTotal <= 16) ? addHoursToTime(clockStart, clockTotal) : '';
 
     return {
       carry: carry, dev: sum.dev, cumulative: cumulative, need: need,
@@ -449,140 +452,286 @@
       restQuarter: restQuarter, restYear: restYear,
       perQuarter: perQuarter, perYear: perYear,
       status: status, isCurrentYear: qy === new Date().getFullYear(),
-      clockScope: clockScope, clockStart: clockStart, clockEnd: clockEnd
+      clockScope: clockScope, clockStart: clockStart, clockEnd: clockEnd,
+      clockTotal: clockTotal
     };
   }
 
   // 季度累计卡片（季度页）
+  // 版式：标题行 → 结转构成 chips → 主数值 hero → 两档「还清」目标 → 收工时间
   function quarterCardHtml(p) {
     if (!p || !p.isCurrentYear) return '';
-    var cls, title, num, footer = '';
+    var s = WHT.getUserSettings();
+    var cls, label, num, unit;
     if (p.status === 'done') {
       cls = 'is-done';
-      title = '年度累计已达标';
-      num = (p.cumulative > 0 ? fmtSignedHours(p.cumulative) : '0.0h');
+      label = '年度累计已达标';
+      num = (p.cumulative > 0 ? '+' + p.cumulative.toFixed(1) : '0.0');
+      unit = 'h 盈余';
     } else if (p.status === 'overdue') {
       cls = 'is-overdue';
-      title = '今年工作日已用完';
-      num = p.need.toFixed(1) + 'h';
+      label = '今年工作日已用完';
+      num = p.need.toFixed(1);
+      unit = 'h 待补';
     } else {
       cls = 'is-chase';
-      title = '累计仍差';
-      num = p.need.toFixed(1) + 'h';
+      label = '累计仍差';
+      num = p.need.toFixed(1);
+      unit = 'h';
     }
 
-    var horizons = '';
+    // 两档「还清」目标：并排双卡，两档数值一样时只留一档
+    var plans = '';
     if (p.status === 'chase') {
+      var items = [];
       if (p.perQuarter > 0) {
-        horizons += '<div class="qcum-horizon">' +
-          '<span class="qcum-horizon-label">本季度内还清</span>' +
-          '<span class="qcum-horizon-value">' + p.perQuarter.toFixed(2) + '<span class="qcum-horizon-unit">h/天</span></span>' +
-          '<span class="qcum-horizon-days">剩 ' + p.restQuarter + ' 天</span>' +
-        '</div>';
+        items.push({ name: '本季度内还清', per: p.perQuarter, days: p.restQuarter });
       }
       if (p.perYear > 0 && p.restYear !== p.restQuarter) {
-        horizons += '<div class="qcum-horizon">' +
-          '<span class="qcum-horizon-label">到年底还清</span>' +
-          '<span class="qcum-horizon-value">' + p.perYear.toFixed(2) + '<span class="qcum-horizon-unit">h/天</span></span>' +
-          '<span class="qcum-horizon-days">剩 ' + p.restYear + ' 天</span>' +
+        items.push({ name: '到年底还清', per: p.perYear, days: p.restYear });
+      }
+      if (items.length) {
+        plans = '<div class="qcum-plans' + (items.length === 1 ? ' is-single' : '') + '">' +
+          items.map(function(x) {
+            return '<div class="qcum-plan">' +
+                '<span class="qcum-plan-name">' + x.name + '</span>' +
+                // 前面留「+」：这两档是「额外要补的量」，不是当天总工时（当天还要上满日常标准工时）
+                '<span class="qcum-plan-value">+' + x.per.toFixed(2) + '<i>h/天</i></span>' +
+                '<span class="qcum-plan-days">剩 ' + x.days + ' 天</span>' +
+              '</div>';
+          }).join('') +
         '</div>';
       }
-      if (p.clockEnd) {
-        footer = '<div class="qcum-clock"><span class="qcum-clock-dot" aria-hidden="true"></span>' +
-          '按 ' + p.clockStart + ' 上班计 · ' + p.clockScope + '约 <strong>' + p.clockEnd + '</strong> 下班</div>';
-      }
     }
+
+    // 收工时间行。「按 X 上班计」里的 X 可以直接点开改（与设置页共用 editWorkStartTime）。
+    // 即便不换算下班点（总工时 > 16h），这一行也保留，保证卡片上始终能改上班时间。
+    var stdH = s.standardHours || 8;
+    var clock = (p.status === 'chase')
+      ? '<div class="qcum-clock">' +
+          '<span class="qcum-clock-dot" aria-hidden="true"></span>' +
+          '按 <span class="qcum-clock-time" role="button" tabindex="0" ' +
+            'onclick="WHT.editWorkStartTime()" title="点击修改标准上班时间">' + p.clockStart + '</span> 上班计 · 含日常 ' + stdH + 'h' +
+          (p.clockEnd ? '，' + p.clockScope + '约 <strong>' + p.clockEnd + '</strong> 下班' : '') +
+        '</div>'
+      : '';
 
     return '<div class="qcum-card ' + cls + '">' +
       '<div class="qcum-head">' +
-        '<span class="qcum-tag">年度累计结转</span>' +
-        '<span class="qcum-edit">设置期初结余 ›</span>' +
+        '<span class="qcum-title"><span class="qcum-dot" aria-hidden="true"></span>年度累计结转</span>' +
+        '<span class="qcum-edit" role="button" tabindex="0">设置期初结余 ›</span>' +
       '</div>' +
       '<div class="qcum-chips">' +
-        '<span class="qcum-chip">期初结余 <strong class="' + (p.carry < 0 ? 'neg' : p.carry > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.carry) + '</strong></span>' +
-        '<span class="qcum-chip">本季度 <strong class="' + (p.dev < 0 ? 'neg' : p.dev > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.dev) + '</strong></span>' +
+        '<span class="qcum-chip"><i>期初结余</i><b class="' + (p.carry < 0 ? 'neg' : p.carry > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.carry) + '</b></span>' +
+        '<span class="qcum-chip"><i>本季度</i><b class="' + (p.dev < 0 ? 'neg' : p.dev > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.dev) + '</b></span>' +
       '</div>' +
-      '<div class="qcum-main">' +
-        '<span class="qcum-label">' + title + '</span>' +
-        '<span class="qcum-value">' + num + '</span>' +
+      '<div class="qcum-hero">' +
+        '<span class="qcum-label">' + label + '</span>' +
+        '<span class="qcum-value">' + num + '<i class="qcum-unit">' + unit + '</i></span>' +
       '</div>' +
-      horizons +
-      footer +
-    '</div>';
-  }
-
-  // 追赶卡片（月度页）：完整信息
-  function paceCardHtml(p) {
-    if (!p) return '';
-    var cls, label, num, sub, clock = '';
-    if (p.status === 'done') {
-      cls = 'is-done';
-      label = p.need < 0 ? '本月已达标，超额' : '本月已达标';
-      num = (p.need < 0 ? '+' + Math.abs(p.need).toFixed(1) : '0.0') + 'h';
-      sub = '已完成 ' + p.done.toFixed(1) + 'h · 目标 ' + p.target + 'h';
-    } else if (p.status === 'overdue') {
-      cls = 'is-overdue';
-      label = p.isCurrentMonth === false ? '该月工作日已结束' : '本月工作日已用完';
-      num = p.need.toFixed(1) + 'h';
-      // 只有当月才能靠「加调休补班日」补救，过去月份只能补录
-      sub = p.isCurrentMonth === false
-        ? '还差这么多 · 可补录记录'
-        : '还差这么多 · 可补录记录，或把周末设为上班';
-    } else {
-      cls = 'is-chase';
-      label = '接下来每天需完成';
-      num = p.perDay.toFixed(2) + 'h';
-      sub = '剩余 ' + p.restDays + ' 个工作日 · 共需完成 ' + p.need.toFixed(1) + 'h';
-      if (p.clockEnd) {
-        clock = '<div class="pace-clock"><span class="pace-clock-dot" aria-hidden="true"></span>' +
-          p.clockStart + ' 上班 → 约 <strong>' + p.clockEnd + '</strong> 下班</div>';
-      }
-    }
-    return '<div class="pace-card ' + cls + '">' +
-      '<div class="pace-card-head"><span class="pace-card-tag">按工作日节奏</span></div>' +
-      '<div class="pace-card-main">' +
-        '<span class="pace-card-label">' + label + '</span>' +
-        '<span class="pace-card-value">' + num + '</span>' +
-      '</div>' +
-      '<div class="pace-card-sub">' + sub + '</div>' +
+      plans +
       clock +
     '</div>';
   }
 
-  // 追赶提示条（记录页）：一行，点击进月度页
-  function paceHintHtml(p) {
-    if (!p) return '';
-    var cls, main, sub, aria;
-    if (p.status === 'done') {
-      cls = 'is-done';
-      main = '本月已达标';
-      sub = p.need < 0 ? '超额 ' + Math.abs(p.need).toFixed(1) + 'h，可以早点收工了' : '刚好完成本月目标';
-      aria = main + '，' + sub;
-    } else if (p.status === 'overdue') {
-      cls = 'is-overdue';
-      main = '本月工作日已用完';
-      sub = '还差 ' + p.need.toFixed(1) + 'h，可补录记录';
-      aria = main + '，' + sub;
-    } else {
-      cls = 'is-chase';
-      var who = p.todayCounts ? '今天还需 ' : '每个工作日还需 ';
-      main = who + '<span class="pace-hint-value">' + p.perDay.toFixed(2) + 'h</span>';
-      // 记录页：优先用今天真实的打卡时间倒推收工点（打了卡就按打卡时间算），
-      // 没打卡 / 今天已收工（perDay 描述的是以后的工作日）时才退回设置里的常用上班时间。
-      var cStart = p.actualStart || p.clockStart;
-      var cEnd = p.actualStart ? p.actualEnd : p.clockEnd;
-      var clockTxt = cEnd ? cStart + ' 上班 → 约 ' + cEnd + ' 下班 · ' : '';
-      sub = clockTxt + '本月还差 ' + p.need.toFixed(1) + 'h';
-      aria = who + p.perDay.toFixed(2) + '小时，' +
-             (cEnd ? cStart + '上班约 ' + cEnd + ' 下班，' : '') +
-             '本月还差 ' + p.need.toFixed(1) + '小时';
+  // ═══ 记录页「今日卡」 ═══
+  // 把原来分开的「实时计时卡」与「今天还需完成多少」提示条合成一张卡。
+  // 关键是把两者的口径统一：计时卡原本按 standardHours 走，提示条按 perDay 走，
+  // 同一件事给出两个不同的收工时间。现在统一成 todayTargetOf()。
+
+  // 时长格式化：344 → '5h 44m'
+  function fmtDur(min) {
+    min = Math.max(0, Math.round(min || 0));
+    var h = Math.floor(min / 60), m = min % 60;
+    if (h && m) return h + 'h ' + m + 'm';
+    if (h) return h + 'h';
+    return m + 'm';
+  }
+
+  // 今日目标 = max(标准工时, 每日需完成)
+  // 只取标准工时 → 欠账很多的人会以为今天干满 9h 就够了；
+  // 只取每日需完成 → 有盈余时目标会被压到 9h 以下，与实际仍要上满班不符。
+  // 取两者较大值，两种情形都对得上。
+  function todayTargetOf(p, std) {
+    var pd = (p && p.status === 'chase') ? (p.perDay || 0) : 0;
+    return Math.max(std || 8, pd);
+  }
+
+  // 今日进度。两种模式：
+  //   mode='live' 已上班未下班 → 用时按当前时钟走，收工点是「预计」
+  //   mode='done' 已收工       → 用时取记录里的实际工时，不随时钟变
+  function dayProgress(mode, startTime, endTime, workedHours, targetHours) {
+    var targetMin = Math.max(0, Math.round((targetHours || 0) * 60));
+    var elapsedMin = 0, endStr = '', startMin = -1;
+    if (startTime) {
+      var sp = String(startTime).split(':');
+      var hh = parseInt(sp[0], 10), mm = parseInt(sp[1], 10);
+      if (!isNaN(hh)) startMin = hh * 60 + (isNaN(mm) ? 0 : mm);
     }
-    return '<div class="pace-hint ' + cls + '" onclick="openCurrentMonthFromPace()" role="button" tabindex="0" aria-label="' + aria + '">' +
-      '<div class="pace-hint-text">' +
-        '<div class="pace-hint-main">' + main + '</div>' +
-        '<div class="pace-hint-sub">' + sub + '</div>' +
-      '</div>' +
-      '<span class="pace-hint-more" aria-hidden="true">本月 ›</span>' +
+    if (mode === 'done') {
+      elapsedMin = Math.round((workedHours || 0) * 60);
+      endStr = endTime || '';
+    } else {
+      var nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+      if (startMin >= 0) {
+        elapsedMin = nowMin - startMin;
+        if (elapsedMin < 0) elapsedMin += 1440;   // 跨天
+      }
+      if (startMin >= 0 && targetMin > 0) {
+        var e = (startMin + targetMin) % 1440;
+        endStr = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+      }
+    }
+    var remainMin = Math.max(0, targetMin - elapsedMin);
+    return {
+      startMin: startMin,
+      elapsedMin: elapsedMin,
+      remainMin: remainMin,
+      overMin: Math.max(0, elapsedMin - targetMin),
+      targetMin: targetMin,
+      pct: targetMin > 0 ? Math.min(100, Math.round(elapsedMin / targetMin * 100)) : 0,
+      endStr: endStr,
+      reached: targetMin > 0 && remainMin === 0
+    };
+  }
+
+  // 今日卡内部结构：标题行 + 双栏 hero + 进度条 + 起止 meta (+ 提醒)
+  // opts.mode: 'idle' | 'live' | 'done'
+  function dayBodyHtml(d, opts) {
+    opts = opts || {};
+    var mode = opts.mode || 'idle';
+    var std = opts.std || 8;
+    var reached = mode === 'live' && d.reached;
+    // 已收工的日子整条进度条走绿色；计时中则按是否达标在蓝/绿之间切换
+    var accent = (mode === 'done' || reached) ? 'var(--color-success)' : 'var(--color-accent)';
+
+    // ── 标题 + 状态胶囊 ──
+    var title = mode === 'done' ? '今日完成' : (mode === 'idle' ? '今日安排' : '今日进度');
+    var chip, chipTxt;
+    if (mode === 'done') { chip = 'is-done'; chipTxt = '已收工'; }
+    else if (mode === 'idle') { chip = 'is-idle'; chipTxt = '未开始'; }
+    else if (reached) { chip = 'is-done'; chipTxt = '已达标'; }
+    else { chip = 'is-live'; chipTxt = '计时中'; }
+    var head = '<div class="day-head">' +
+        '<span class="day-title">' + title + '</span>' +
+        '<span class="day-chip ' + chip + '">' + chipTxt + '</span>' +
+      '</div>';
+
+    // ── 双栏 hero：左「已工作」，右随状态变化 ──
+    var lVal, lLabel = '已工作', rVal, rLabel, rColor;
+    if (mode === 'idle') {
+      lVal = '--'; rVal = fmtDur(d.targetMin); rLabel = '今天还需'; rColor = 'var(--color-accent)';
+    } else if (mode === 'done') {
+      lVal = fmtDur(d.elapsedMin);
+      var diffMin = d.elapsedMin - Math.round(std * 60);
+      rVal = (diffMin >= 0 ? '+' : '-') + fmtDur(Math.abs(diffMin));
+      rLabel = '相对标准';
+      rColor = diffMin >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+    } else if (reached) {
+      lVal = fmtDur(d.elapsedMin);
+      rVal = d.overMin > 0 ? '+' + fmtDur(d.overMin) : '已达标';
+      rLabel = d.overMin > 0 ? '今日超额' : '今日目标';
+      rColor = 'var(--color-success)';
+    } else {
+      lVal = fmtDur(d.elapsedMin); rVal = fmtDur(d.remainMin);
+      rLabel = '今天还需'; rColor = 'var(--color-accent)';
+    }
+    var hero = '<div class="day-hero">' +
+        '<div class="day-hero-col">' +
+          '<span class="day-hero-value' + (mode === 'idle' ? ' is-empty' : '') + '">' + lVal + '</span>' +
+          '<span class="day-hero-label">' + lLabel + '</span>' +
+        '</div>' +
+        '<span class="day-hero-sep" aria-hidden="true"></span>' +
+        '<div class="day-hero-col">' +
+          '<span class="day-hero-value" style="color:' + rColor + '">' + rVal + '</span>' +
+          '<span class="day-hero-label">' + rLabel + '</span>' +
+        '</div>' +
+      '</div>';
+
+    // ── 进度条 ──
+    var track = '<div class="day-track-row">' +
+        '<div class="day-track"><span class="day-track-fill" style="width:' + d.pct + '%;background:' + accent + '"></span></div>' +
+        '<span class="day-track-pct" style="color:' + accent + '">' + d.pct + '%</span>' +
+      '</div>';
+
+    // ── 起止 meta ──
+    var meta;
+    if (mode === 'idle') {
+      meta = '<div class="day-meta"><span class="day-meta-hint">打完上班卡开始计时</span></div>';
+    } else if (mode === 'done') {
+      meta = '<div class="day-meta">' +
+          '<span class="day-meta-item"><b>' + escapeHtml(opts.startTime || '') + '</b> 上班</span>' +
+          '<span class="day-meta-arrow" aria-hidden="true">→</span>' +
+          '<span class="day-meta-item"><b>' + escapeHtml(opts.endTime || '') + '</b> 下班</span>' +
+        '</div>';
+    } else {
+      meta = '<div class="day-meta">' +
+          '<span class="day-meta-item"><b>' + escapeHtml(opts.startTime || '') + '</b> 上班</span>' +
+          '<span class="day-meta-arrow" aria-hidden="true">→</span>' +
+          '<span class="day-meta-item">预计 <b>' + (d.endStr || '--:--') + '</b> 下班</span>' +
+        '</div>';
+    }
+
+    var remind = reached
+      ? '<div class="day-remind">已够今日目标，记得打下班卡 💡</div>'
+      : '';
+
+    return head + hero + track + meta + remind;
+  }
+
+  // 计时中的卡片主体（记录页每 10s 重绘一次，所以单独出口）
+  function dayLiveHtml(startTime, targetHours, std) {
+    return dayBodyHtml(dayProgress('live', startTime, '', 0, targetHours),
+      { mode: 'live', startTime: startTime, std: std });
+  }
+
+  // 今日卡（记录页）：完整卡片 = 主体 + 本月节奏底栏
+  // ctx: { mode:'idle'|'live'|'done', startTime, endTime, hours }
+  function dayCardHtml(p, ctx) {
+    ctx = ctx || {};
+    var mode = ctx.mode || 'idle';
+    var std = (p && p.standardHours) || 8;
+    var target = todayTargetOf(p, std);
+    var d = dayProgress(mode === 'done' ? 'done' : mode, ctx.startTime, ctx.endTime, ctx.hours, target);
+
+    // 底栏：本月节奏三组数字，点击进月度页。
+    // 数字都带语义色（还差=红 / 每天需完成=强调色 / 超额=绿），
+    // 这几项是用户最常扫的信息，不能只靠灰色小字。
+    var facts = [];
+    if (p) {
+      if (p.status === 'done') {
+        facts.push({ v: (p.need < 0 ? '+' + Math.abs(p.need).toFixed(1) : '0.0') + 'h', l: '本月超额', c: 'is-success' });
+        facts.push({ v: p.done.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
+        facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
+      } else if (p.status === 'overdue') {
+        facts.push({ v: p.need.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
+        facts.push({ v: p.done.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
+        facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
+      } else {
+        facts.push({ v: p.need.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
+        facts.push({ v: p.perDay.toFixed(2) + 'h', l: '每天需完成', c: 'is-accent' });
+        facts.push({ v: String(p.restDays), l: '剩余工作日', c: '' });
+      }
+    }
+    var foot = facts.length
+      ? '<div class="day-foot" onclick="openCurrentMonthFromPace()" role="button" tabindex="0" aria-label="' +
+          escapeHtml(facts.map(function(f) { return f.l + ' ' + f.v; }).join('，')) + '，点击查看本月">' +
+          '<div class="day-facts">' +
+            facts.map(function(f, i) {
+              return (i ? '<span class="day-fact-sep" aria-hidden="true"></span>' : '') +
+                '<span class="day-fact"><b class="' + f.c + '">' + f.v + '</b><i>' + f.l + '</i></span>';
+            }).join('') +
+          '</div>' +
+          '<span class="day-foot-more" aria-hidden="true">本月 ›</span>' +
+        '</div>'
+      : '';
+
+    var cls = mode === 'done' ? 'is-done' : (mode === 'live' ? 'is-live' : 'is-idle');
+    return '<div class="day-card ' + cls + '">' +
+      '<div class="day-body" id="dayBody">' + dayBodyHtml(d, {
+        mode: mode, startTime: ctx.startTime, endTime: ctx.endTime, std: std
+      }) + '</div>' +
+      foot +
     '</div>';
   }
 
@@ -643,8 +792,11 @@
   WHT.quarterCarry = quarterCarry;
   WHT.quarterPace = quarterPace;
   WHT.quarterCardHtml = quarterCardHtml;
-  WHT.paceCardHtml = paceCardHtml;
-  WHT.paceHintHtml = paceHintHtml;
+  WHT.dayCardHtml = dayCardHtml;
+  WHT.dayLiveHtml = dayLiveHtml;
+  WHT.dayProgress = dayProgress;
+  WHT.todayTargetOf = todayTargetOf;
+  WHT.fmtDur = fmtDur;
   WHT.toggleHoliday = toggleHoliday;
   WHT.haptic = haptic;
 

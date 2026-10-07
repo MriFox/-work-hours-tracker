@@ -25,7 +25,7 @@
     var passedRatio = daysPassed / 7;
     var expectedPct = Math.min(100, Math.round(passedRatio * 100));
     var pctClass = WHT.paceClass(pct, expectedPct, isEmpty);
-    var diffC = WHT.diffColor(diff, passedRatio);
+    var diffC = WHT.diffColor(diff);
     var avg = ws.days > 0 ? (ws.total / ws.days) : 0;
     var circumference = 2 * Math.PI * 80 * 180 / 360;
     var offset = isEmpty ? circumference : circumference * (1 - pct / 100);

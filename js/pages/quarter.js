@@ -40,7 +40,7 @@
     var elapsedWorkDays = Math.max(0, sum.workDays - cp.restQuarter);
     var passedRatio = sum.workDays > 0 ? Math.min(1, elapsedWorkDays / sum.workDays) : 1;
     var pClass = WHT.paceClass(pg, passedRatio * 100, isEmpty);
-    var diffC = WHT.diffColor(diff, passedRatio);
+    var diffC = WHT.diffColor(diff);
 
     var circumference = Math.PI * 80;
     var offset = circumference - (pg / 100) * circumference;
@@ -54,11 +54,6 @@
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">' + (isEmpty ? '📊' : diff >= 0 ? '📈' : '📉') + '</div><div class="quarter-stat-value" style="color:' + diffC + '">' + (isEmpty ? '<span class="empty-text">待开始</span>' : (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'h') + '</div><div class="quarter-stat-label">差额(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">💰</div><div class="quarter-stat-value">' + (qHF === 0 ? '<span class="empty-text">¥0.00</span>' : '¥' + qHF.toFixed(2)) + '</div><div class="quarter-stat-label">加班费(元)</div></div>' +
     '</div>';
-
-    // 节假日工时进加班费、不进目标（与月度页同一口径）
-    var holidayNote = sum.holidayHours > 0
-      ? '<div class="stat-note">节假日 <strong>' + sum.holidayHours.toFixed(1) + 'h</strong> 已计入加班费，不计入目标工时</div>'
-      : '';
 
     var ringHtml = '<div class="quarter-ring-container">' +
       '<svg class="quarter-ring" viewBox="0 0 200 110"><path class="quarter-ring-bg" d="M 10 100 A 80 80 0 0 1 190 100" /><path class="quarter-ring-fill ' + ringClass + '" d="M 10 100 A 80 80 0 0 1 190 100" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + (isEmpty ? circumference : offset) + '" pathLength="' + circumference + '" /></svg>' +
@@ -105,7 +100,7 @@
       '<div class="quarter-year-nav"><button class="month-nav-btn" onclick="changeQuarterYear(-1)">&#9664;</button><span class="quarter-year-title">' + qy + '年</span><button class="month-nav-btn" onclick="changeQuarterYear(1)">&#9654;</button></div>' +
     '</div>';
 
-    c.innerHTML = navHtml + statsHtml + holidayNote + ringHtml + qcumHtml + monthsHtml + emptyHtml + fabHtml;
+    c.innerHTML = navHtml + statsHtml + ringHtml + qcumHtml + monthsHtml + emptyHtml + fabHtml;
 
     // 「设置期初结余」入口
     var editEl = c.querySelector('.qcum-edit');

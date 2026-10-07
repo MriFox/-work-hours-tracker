@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-style="warm">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>季度累计结转卡片 · 设计方案</title>
+<link rel="stylesheet" href="../css/design-system.css">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   季度「年度累计结转」卡片 — 4 个设计方案对比页
+
+   所有卡片都共用同一组示意数据（放在页面底部 JS 里，方便改）：
+     期初结余 -42.0h   本季度偏差 -144.0h   累计仍差 186.0h
+     本季度内还清 +3.05h/天（剩 61 天）
+     到年底还清   +2.19h/天（剩 85 天）
+     标准上班时间 09:00，日常 9h
+   ══════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px 16px 80px;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 640px; margin: 0 auto; }
+
+.page-title { font-size: 22px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.02em; }
+.page-desc { font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 18px; }
+.page-desc code {
+  font-size: 12px; padding: 1px 5px; border-radius: 4px;
+  background: var(--bg-raised); font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ── 主题切换 ── */
+.switcher { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+.switcher button {
+  font: inherit; font-size: 12px; font-weight: 500;
+  padding: 7px 14px; border-radius: var(--radius-full);
+  border: 0.5px solid var(--border-card);
+  background: var(--bg-card); color: var(--text-secondary);
+  cursor: pointer; box-shadow: var(--neu-sm);
+  transition: all .18s ease;
+}
+.switcher button:hover { color: var(--text-primary); }
+.switcher button.on {
+  background: var(--color-accent); color: var(--text-on-accent);
+  border-color: transparent;
+}
+
+/* ── 方案容器 ── */
+.opt { margin-bottom: 34px; }
+.opt-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.opt-tag {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 3px 8px; border-radius: var(--radius-xs);
+  background: var(--color-accent); color: var(--text-on-accent);
+}
+.opt-name { font-size: 15px; font-weight: 600; }
+.opt-desc { font-size: 12px; line-height: 1.65; color: var(--text-secondary); margin: 0 0 12px 2px; }
+.opt-desc b { color: var(--text-primary); font-weight: 600; }
+
+/* 卡片通用底座（四套主题自动适配） */
+.card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--neu-sm);
+  padding: 16px;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 12px;
+}
+.card-title {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 600;
+}
+.card-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-warning); flex: none; }
+.card-edit {
+  font-size: 11px; color: var(--color-accent);
+  padding: 3px 8px; margin-right: -8px; border-radius: var(--radius-xs);
+  cursor: pointer; white-space: nowrap;
+}
+.clock {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 12px; font-size: 11px; color: var(--text-secondary);
+}
+.clock b { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.clock .t {
+  font-weight: 600; color: var(--color-accent);
+  border-bottom: 1px dashed var(--color-accent-border);
+  cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.clock-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.neg { color: var(--color-danger); }
+.pos { color: var(--color-success); }
+
+/* ══════════════════════════════════════════════════════
+   方案 A — 载荷条版
+   核心：把「要补的量」换算成「每天得干到几点」，
+        两条横条按 16h 刻度并列，虚线标出正常 9h 的位置。
+   ══════════════════════════════════════════════════════ */
+.qa-hero { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.qa-hero-num { font-size: 36px; font-weight: 700; line-height: 1; color: var(--color-danger); }
+.qa-hero-num i { font-style: normal; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+.qa-hero-label { font-size: 13px; color: var(--text-secondary); }
+
+.qa-comp {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-size: 11px; color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.qa-comp b { font-size: 13px; font-weight: 700; margin-left: 6px; }
+.qa-comp-op { color: var(--text-disabled); }
+
+.qa-load { margin-bottom: 12px; }
+.qa-load:last-of-type { margin-bottom: 0; }
+.qa-load-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
+}
+.qa-load-name { font-size: 12px; color: var(--text-secondary); }
+.qa-load-val { font-size: 15px; font-weight: 700; }
+.qa-load-val i { font-style: normal; font-size: 10px; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+.qa-track {
+  position: relative; height: 8px; border-radius: var(--radius-full);
+  background: var(--bg-raised); overflow: hidden;
+}
+.qa-track i {
+  display: block; height: 100%; border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+.qa-load.is-hard .qa-track i { background: var(--color-danger); }
+/* 正常 9h 工时的位置参考线 */
+.qa-track s {
+  position: absolute; top: -2px; bottom: -2px; width: 2px;
+  background: var(--text-disabled); border-radius: 1px;
+}
+.qa-load-foot {
+  display: flex; justify-content: space-between;
+  margin-top: 5px; font-size: 10px; color: var(--text-muted);
+}
+
+/* ══════════════════════════════════════════════════════
+   方案 B — 账本版
+   核心：像对账单一样把「怎么欠出来的」列清楚，
+        点线引导 + 合计双线，信息密度最高。
+   ══════════════════════════════════════════════════════ */
+.qb-row {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 8px 0; font-size: 13px; color: var(--text-secondary);
+}
+.qb-row .lead {
+  flex: 1; min-width: 12px;
+  border-bottom: 1px dotted var(--text-disabled);
+  transform: translateY(-3px);
+}
+.qb-row b { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.qb-row.is-total {
+  margin-top: 4px; padding-top: 12px;
+  border-top: 1.5px solid var(--border-card);
+  color: var(--text-primary); font-weight: 600;
+}
+.qb-row.is-total b { font-size: 24px; color: var(--color-danger); letter-spacing: -0.03em; }
+.qb-row.is-total b i { font-style: normal; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+.qb-plans { margin-top: 14px; }
+.qb-plan {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 10px 12px; margin-bottom: 6px;
+  border-radius: var(--radius-md); background: var(--bg-raised);
+}
+.qb-plan span { font-size: 12px; color: var(--text-secondary); }
+.qb-plan b { margin-left: auto; font-size: 15px; font-weight: 700; }
+.qb-plan b i { font-style: normal; font-size: 10px; font-weight: 500; color: var(--text-muted); margin-left: 1px; }
+.qb-plan em { font-style: normal; font-size: 11px; color: var(--text-muted); min-width: 52px; text-align: right; }
+
+/* ══════════════════════════════════════════════════════
+   方案 C — 时间轴版
+   核心：把「本季度末 / 年底」两个时间点摆到一条线上，
+        空间上直接看出「越早还清、每天越狠」。
+   ══════════════════════════════════════════════════════ */
+.qc-now {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 16px;
+}
+.qc-now-num { font-size: 30px; font-weight: 700; line-height: 1; color: var(--color-danger); }
+.qc-now-num i { font-style: normal; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+.qc-now-label { font-size: 12px; color: var(--text-secondary); }
+
+.qc-line { position: relative; padding-left: 20px; }
+.qc-line::before {
+  content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px;
+  width: 2px; border-radius: 1px; background: var(--bg-raised);
+}
+.qc-node { position: relative; padding-bottom: 16px; }
+.qc-node:last-child { padding-bottom: 0; }
+.qc-node::before {
+  content: ''; position: absolute; left: -20px; top: 4px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--bg-card); border: 2.5px solid var(--color-accent);
+}
+.qc-node.is-first::before { border-color: var(--color-warning); }
+.qc-node.is-last::before { border-color: var(--color-success); }
+.qc-node-date { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; }
+.qc-node-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.qc-node-rate { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.qc-node-rate i { font-style: normal; font-size: 10px; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+.qc-node-note { font-size: 11px; color: var(--text-secondary); }
+
+/* ══════════════════════════════════════════════════════
+   方案 D — 极简一句话版
+   核心：不占地方，用一条带颜色的结论句把信息说完。
+   ══════════════════════════════════════════════════════ */
+.qd-main { font-size: 17px; font-weight: 600; line-height: 1.5; }
+.qd-main b { font-size: 22px; font-weight: 700; color: var(--color-danger); }
+.qd-sub {
+  margin-top: 7px; font-size: 12.5px; line-height: 1.75;
+  color: var(--text-secondary);
+}
+.qd-sub b { color: var(--color-accent-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.qd-sub .d { color: var(--text-disabled); margin: 0 4px; }
+
+.foot-note {
+  margin-top: 30px; padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-size: 12px; line-height: 1.75; color: var(--text-secondary);
+}
+.foot-note b { color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1 class="page-title">「年度累计结转」卡片 · 4 个设计方案</h1>
+  <p class="page-desc">
+    都可以切换主题看效果。数据是示意图（期初结余 -42.0h、本季度 -144.0h、累计仍差 <b>186.0h</b>）。
+    每张卡片右下角那行「按 <span style="color:var(--color-accent)">09:00</span> 上班计」里的时间，
+    <b>四个方案都做成了可点击直接修改</b>。
+  </p>
+
+  <div class="switcher">
+    <button data-theme-set="warm-light" class="on">暖色 · 浅色</button>
+    <button data-theme-set="warm-dark">暖色 · 深色</button>
+    <button data-theme-set="flat-light">极简 · 浅色</button>
+    <button data-theme-set="flat-dark">极简 · 深色</button>
+  </div>
+
+  <!-- ═══ 方案 A ═══ -->
+  <div class="opt">
+    <div class="opt-head"><span class="opt-tag">方案 A</span><span class="opt-name">载荷条版</span></div>
+    <p class="opt-desc">
+      把「欠多少」换算成「每天得干到多少小时」，两条横条<b>按 16 小时刻度并列</b>，
+      灰色竖线标出正常 9h 工时。一眼看出：想在本季度内还清，每天要顶到 12 小时。
+    </p>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+        <span class="card-edit">设置期初结余 ›</span>
+      </div>
+      <div class="qa-hero">
+        <span class="qa-hero-num num">186.0<i>h</i></span>
+        <span class="qa-hero-label">累计仍差</span>
+      </div>
+      <div class="qa-comp">
+        <span>期初结余<b class="num neg">-42.0h</b></span>
+        <span class="qa-comp-op">+</span>
+        <span>本季度<b class="num neg">-144.0h</b></span>
+      </div>
+
+      <div class="qa-load is-hard">
+        <div class="qa-load-top">
+          <span class="qa-load-name">本季度内还清</span>
+          <span class="qa-load-val num">12.05<i>h / 天</i></span>
+        </div>
+        <div class="qa-track"><i style="width:75%"></i><s style="left:56%"></s></div>
+        <div class="qa-load-foot"><span>剩 61 个工作日</span><span>比日常多 3.05h</span></div>
+      </div>
+
+      <div class="qa-load">
+        <div class="qa-load-top">
+          <span class="qa-load-name">到年底还清</span>
+          <span class="qa-load-val num">11.19<i>h / 天</i></span>
+        </div>
+        <div class="qa-track"><i style="width:70%"></i><s style="left:56%"></s></div>
+        <div class="qa-load-foot"><span>剩 85 个工作日</span><span>比日常多 2.19h</span></div>
+      </div>
+
+      <div class="clock">
+        <span class="clock-dot"></span>
+        按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 方案 B ═══ -->
+  <div class="opt">
+    <div class="opt-head"><span class="opt-tag">方案 B</span><span class="opt-name">账本版</span></div>
+    <p class="opt-desc">
+      像看对账单：先列清楚<b>这笔欠账是怎么来的</b>（期初 + 本季度），再加一条合计线；
+      下面两行是「要么现在狠、要么慢慢还」的两条路。信息密度最高，最像专业报表。
+    </p>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+        <span class="card-edit">设置期初结余 ›</span>
+      </div>
+
+      <div class="qb-row"><span>期初结余</span><span class="lead"></span><b class="num neg">-42.0h</b></div>
+      <div class="qb-row"><span>本季度偏差</span><span class="lead"></span><b class="num neg">-144.0h</b></div>
+      <div class="qb-row is-total"><span>累计仍差</span><span class="lead"></span><b class="num">186.0<i>h</i></b></div>
+
+      <div class="qb-plans">
+        <div class="qb-plan">
+          <span>本季度内还清</span>
+          <b class="num">+3.05<i>h/天</i></b>
+          <em>剩 61 天</em>
+        </div>
+        <div class="qb-plan">
+          <span>到年底还清</span>
+          <b class="num">+2.19<i>h/天</i></b>
+          <em>剩 85 天</em>
+        </div>
+      </div>
+
+      <div class="clock">
+        <span class="clock-dot"></span>
+        按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 方案 C ═══ -->
+  <div class="opt">
+    <div class="opt-head"><span class="opt-tag">方案 C</span><span class="opt-name">时间轴版</span></div>
+    <p class="opt-desc">
+      把两个时间点摆到一条竖直时间线上，<b>空间上</b>就能看出「越早还清、每天越狠」。
+      节点颜色从黄到绿，暗示紧迫度的递减。
+    </p>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+        <span class="card-edit">设置期初结余 ›</span>
+      </div>
+
+      <div class="qc-now">
+        <span class="qc-now-num num">186.0<i>h</i></span>
+        <span class="qc-now-label">累计仍差 · 期初 -42.0h + 本季度 -144.0h</span>
+      </div>
+
+      <div class="qc-line">
+        <div class="qc-node is-first">
+          <div class="qc-node-date">本季度末 · 剩 61 个工作日</div>
+          <div class="qc-node-main">
+            <span class="qc-node-rate num">每天额外 +3.05<i>h</i></span>
+            <span class="qc-node-note">≈ 09:00 干到 21:03</span>
+          </div>
+        </div>
+        <div class="qc-node is-last">
+          <div class="qc-node-date">年底 · 剩 85 个工作日</div>
+          <div class="qc-node-main">
+            <span class="qc-node-rate num">每天额外 +2.19<i>h</i></span>
+            <span class="qc-node-note">≈ 09:00 干到 20:11</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="clock">
+        <span class="clock-dot"></span>
+        按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 方案 D ═══ -->
+  <div class="opt">
+    <div class="opt-head"><span class="opt-tag">方案 D</span><span class="opt-name">极简一句话版</span></div>
+    <p class="opt-desc">
+      不堆组件，用一两句话把结论说完，<b>占的地方最小</b>。
+      适合你更想要「扫一眼知道情况」而不是「研究数据」的场景。
+    </p>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+        <span class="card-edit">设置期初结余 ›</span>
+      </div>
+      <div class="qd-main">累计仍差 <b class="num">186.0h</b></div>
+      <div class="qd-sub">
+        本季度内还清，每天要额外补 <b>+3.05h</b>（剩 61 天）
+        <span class="d">·</span>
+        到年底还清，每天额外补 <b>+2.19h</b>（剩 85 天）
+      </div>
+      <div class="clock">
+        <span class="clock-dot"></span>
+        按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-note">
+    <b>说明：</b>四个方案都保留了「设置期初结余」入口，右下角的上班时间都可以点击修改。
+    选定后我会把它落到应用里，并同步调好深色 / 暖色 / 极简四套主题。
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.switcher button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.switcher button').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    var v = b.dataset.themeSet.split('-');
+    var root = document.documentElement;
+    root.setAttribute('data-style', v[0]);
+    if (v[1] === 'dark') root.setAttribute('data-theme', 'dark');
+    else root.removeAttribute('data-theme');
+  });
+});
+</script>
+</body>
+</html>

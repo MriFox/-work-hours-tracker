@@ -29,7 +29,7 @@
     // 进度节奏改用工作日口径（已过工作日 / 本月总工作日），与追赶提示同源
     var passedRatio = workDays > 0 ? Math.min(1, pace.elapsedWorkDays / workDays) : 1;
     var ringClass = WHT.paceClass(pg, passedRatio * 100, isEmpty);
-    var diffC = WHT.diffColor(diff, passedRatio);
+    var diffC = WHT.diffColor(diff);
 
     // 调休余额
     var cb = 0;
@@ -78,11 +78,6 @@
         '</div>'
       ) +
     '</div>';
-
-    // 节假日工时进加班费、不进目标，实际显示 0 时容易被误判成「加班费没算」
-    var holidayNote = pace.holidayHours > 0
-      ? '<div class="stat-note">节假日 <strong>' + pace.holidayHours.toFixed(1) + 'h</strong> 已计入加班费，不计入目标工时</div>'
-      : '';
 
     var ringHtml = '<div class="quarter-ring-container">' +
       '<svg class="quarter-ring" viewBox="0 0 200 110">' +
@@ -146,9 +141,8 @@
       '<div class="calendar-hint">点击日期可设置「上班 / 休息 / 节假日」</div>' +
     '</div>';
 
-    var paceHtml = WHT.paceCardHtml(pace);
-
-    c.innerHTML = navHtml + statsHtml + holidayNote + ringHtml + paceHtml + calHtml + '<div id="monthDetail"></div>';
+    // 「接下来每天需完成」卡片已按要求移除；该信息保留在记录页今日卡的底栏。
+    c.innerHTML = navHtml + statsHtml + ringHtml + calHtml + '<div id="monthDetail"></div>';
 
     if (!st.selectedDay) st.selectedDay = d.includes(WHT.today()) ? WHT.today() : d[0];
     renderMonthDetail(st.selectedDay);

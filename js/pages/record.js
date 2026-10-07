@@ -4,42 +4,12 @@
   var WHT = window.WHT;
   var st = WHT.state;
 
-// ========== 实时计时器 ==========
+// ========== 今日卡（实时计时） ==========
 
-function renderTimerDisplay(el, tr, stdHoursMin) {
-  var now = new Date();
-  var startParts = tr.startTime.split(':').map(Number);
-  var startMin = startParts[0] * 60 + startParts[1];
-  var nowMin = now.getHours() * 60 + now.getMinutes();
-  var elapsedMin = nowMin - startMin;
-  if (elapsedMin < 0) elapsedMin += 24 * 60;
-  var elapsedH = Math.floor(elapsedMin / 60);
-  var elapsedM = elapsedMin % 60;
-  var ratio = stdHoursMin > 0 ? Math.min(1, elapsedMin / stdHoursMin) : 0;
-  var pct = Math.round(ratio * 100);
-  var endMin = startMin + stdHoursMin;
-  if (endMin >= 24 * 60) endMin -= 24 * 60;
-  var endStr = String(Math.floor(endMin / 60)).padStart(2,'0') + ':' + String(endMin % 60).padStart(2,'0');
-  var elapsedStr = (elapsedH > 0 ? elapsedH + 'h ' : '') + elapsedM + 'm';
-  var color;
-  if (ratio < 0.75) color = 'var(--color-accent)';
-  else if (ratio < 1.0) color = 'var(--color-success)';
-  else if (ratio < 1.25) color = 'var(--color-warning)';
-  else color = 'var(--color-danger)';
-
-  el.innerHTML =
-    '<div class="timer-bar-row">' +
-      '<span class="timer-bar-start">' + WHT.escapeHtml(tr.startTime) + '</span>' +
-      '<span class="timer-bar-time" style="color:' + color + '">' + elapsedStr + '</span>' +
-      '<span class="timer-bar-end">' + endStr + '</span>' +
-    '</div>' +
-    '<div class="timer-bar-track">' +
-      '<div class="timer-bar-fill" style="width:' + pct + '%;background:' + color + '"></div>' +
-    '</div>' +
-    '<div class="timer-bar-meta">' +
-      '<span class="timer-bar-worked">' + (elapsedMin / 60).toFixed(1) + 'h / ' + (stdHoursMin / 60) + 'h</span>' +
-      '<span class="timer-bar-pct" style="color:' + color + '">' + pct + '%</span>' +
-    '</div>';
+// 今日卡主体重绘。计算口径统一在 utils.js 的 dayProgress / dayLiveHtml 里，
+// 这里只负责把「今天的目标」传给它们。
+function renderTimerDisplay(el, startTime, targetHours, stdHours) {
+  el.innerHTML = WHT.dayLiveHtml(startTime, targetHours, stdHours);
 }
 
 function startWorkingTimer() {
@@ -49,15 +19,17 @@ function startWorkingTimer() {
   var td = WHT.today();
   var tr = r.find(function(x) { return x.date === td; });
   if (!tr || !tr.startTime) return;
-  var stdHoursMin = (s.standardHours || 8) * 60;
+  var std = s.standardHours || 8;
+  var now = new Date();
+  // 今日目标与今日卡同源：max(标准工时, 每日需完成)
+  var targetHours = WHT.todayTargetOf(WHT.monthPace(now.getFullYear(), now.getMonth()), std);
+  var el0 = document.getElementById('dayBody');
+  if (el0) renderTimerDisplay(el0, tr.startTime, targetHours, std);
   st._timerInterval = setInterval(function() {
-    var el = document.getElementById('workingTimer');
+    var el = document.getElementById('dayBody');
     if (!el) { stopWorkingTimer(); return; }
-    renderTimerDisplay(el, tr, stdHoursMin);
+    renderTimerDisplay(el, tr.startTime, targetHours, std);
   }, 10000);
-  // 立即渲染一次
-  var el = document.getElementById('workingTimer');
-  if (el) renderTimerDisplay(el, tr, stdHoursMin);
 }
 
 function stopWorkingTimer() {
@@ -217,10 +189,7 @@ function renderRecordPage(c) {
     }
   }
 
-  // ── 日期头部 ──
   var now = new Date();
-  var weekNames = ['日','一','二','三','四','五','六'];
-  var dateHeader = now.getMonth()+1 + '月' + now.getDate() + '日 周' + weekNames[now.getDay()];
 
   // ── 上班打卡按钮 ──
   var startBtnClass = 'punch-btn punch-btn--start';
@@ -286,55 +255,7 @@ function renderRecordPage(c) {
       '</div>' +
     '</div>';
 
-  // ── 今日摘要（仅完成状态显示） ──
-  var summaryHtml = '';
-  if (punchState === 'done') {
-    var std = s.standardHours || 8;
-    var diff = tr.hours - std;
-    var diffStr = (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'h';
-    var diffColor = diff >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
-    var isOvertime = diff > 0;
-    summaryHtml =
-      '<div class="punch-summary">' +
-        '<div class="punch-summary-icon">' + (isOvertime ? '🔥' : '🎉') + '</div>' +
-        '<div class="punch-summary-title">' + (isOvertime ? '今天辛苦了！' : '今日打卡完成') + '</div>' +
-        '<div class="punch-summary-row">' +
-          '<span class="punch-summary-time" onclick="adjustPunchTime(\'start\')" title="点击修改上班时间">' + WHT.escapeHtml(tr.startTime) + '</span>' +
-          '<span class="punch-summary-sep">—</span>' +
-          '<span class="punch-summary-time" onclick="adjustPunchTime(\'end\')" title="点击修改下班时间">' + WHT.escapeHtml(tr.endTime) + '</span>' +
-          '<span class="punch-summary-sep">|</span>' +
-          '<strong>' + tr.hours.toFixed(1) + 'h</strong>' +
-        '</div>' +
-        '<div class="punch-summary-diff" style="color:' + diffColor + '">相对标准' + std + 'h：<strong>' + diffStr + '</strong></div>' +
-        '<div class="punch-summary-hint">点击时间可修改</div>' +
-      '</div>';
-  } else if (punchState === 'working') {
-    // 已上班未下班：显示实时计时器
-    var stdHoursVal = (s && s.standardHours) ? s.standardHours : 8;
-    // 检查是否已过下班时间（提醒）
-    var startParts = tr.startTime.split(':').map(Number);
-    var expectedEndMin = startParts[0] * 60 + startParts[1] + stdHoursVal * 60;
-    if (expectedEndMin >= 24 * 60) expectedEndMin -= 24 * 60;
-    var nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-    var isOverdue = nowMin >= expectedEndMin;
-    summaryHtml =
-      '<div class="today-status today-status--working">' +
-        '<div class="today-status-icon">⏳</div>' +
-        '<div class="today-status-row">' +
-          '<div class="today-status-label">上班时间</div>' +
-          '<div class="today-status-value" style="cursor:pointer" onclick="adjustPunchTime(\'start\')">' + WHT.escapeHtml(tr.startTime) + '</div>' +
-        '</div>' +
-        '<div id="workingTimer" class="working-timer"></div>' +
-        (isOverdue ? '<div class="punch-reminder"><span>💡</span> 今天还没打下班卡，去补录吧</div>' : '') +
-      '</div>';
-  } else {
-    // 未打卡
-    summaryHtml =
-      '<div class="today-status">' +
-        '<div style="font-size:18px">👋</div>' +
-        '<div style="font-size:13px;color:var(--text-secondary)">' + dateHeader + ' · 今天还没打卡</div>' +
-      '</div>';
-  }
+  // 今日摘要已并入下面的「今日卡」（WHT.dayCardHtml），不再单独渲染。
 
   // ── 快捷时段 ──
   var qs = '';
@@ -453,15 +374,21 @@ function renderRecordPage(c) {
       '</div>';
   }
 
-  // ── 本月追赶提示（按工作日节奏，与月度页同源） ──
-  var paceHint = WHT.paceHintHtml(WHT.monthPace(now.getFullYear(), now.getMonth()));
+  // ── 今日卡：把「实时计时」与「今天还需完成多少」合成一张 ──
+  var pace = WHT.monthPace(now.getFullYear(), now.getMonth());
+  var dayCard = WHT.dayCardHtml(pace, {
+    // 打卡状态 'working' 对应今日卡的 'live'（计时中），别直接透传
+    mode: punchState === 'working' ? 'live' : punchState,
+    startTime: tr ? tr.startTime : '',
+    endTime: tr ? tr.endTime : '',
+    hours: tr ? tr.hours : 0
+  });
 
   // ── 组装页面 ──
   c.innerHTML =
     '<div class="bento-grid-record">' +
-      summaryHtml +
+      dayCard +
       punchHtml +
-      paceHint +
       manualHtml +
       ch +
       recentHtml +

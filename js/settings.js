@@ -168,14 +168,13 @@ function renderSettingsPage(c) {
           // 记录页有当天打卡记录时会用真实打卡时间，这里只影响没打卡时（及月度/季度页）的估算。
           (function() {
             var ws = s.workStartTime || WHT.clockStartOf();
-            return '<div class="settings-row settings-row--tap" onclick="WHT.openTimePicker(\'workStartInput\',document.getElementById(\'workStartInput\').value)">' +
+            return '<div class="settings-row settings-row--tap" onclick="WHT.editWorkStartTime()">' +
               '<div class="settings-row-left settings-row-left--stack">' +
                 '<span class="settings-label">标准上班时间</span>' +
                 '<span class="settings-sub">没打卡时用来估算下班时间</span>' +
               '</div>' +
               '<div class="settings-item-right"><span class="settings-value">' + h(ws) + '</span><span class="settings-chevron">›</span></div>' +
-            '</div>' +
-            '<input type="hidden" id="workStartInput" value="' + h(ws) + '" onchange="updateSetting(\'workStartTime\',this.value)">';
+            '</div>';
           })() +
         '</div>' +
       '</div>' +
@@ -229,7 +228,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">牛马计时器</div>' +
-        '<div class="settings-about-version">v0.10.0</div>' +
+        '<div class="settings-about-version">v0.11.0</div>' +
       '</div>' +
 
     '</div>';
@@ -308,6 +307,26 @@ function saveProfile() {
   WHT.showToast('用户名已更新');
 }
 function updateSetting(k,v){WHT.haptic('light');var s=WHT.getUserSettings();s[k]=v;WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
+// 「标准上班时间」统一编辑入口：设置页那一行与季度累计卡片的「按 X 上班计」共用。
+// 时间选择器本来就支持 targetId 通道（confirmTimePicker 会写 value 并触发 onchange），
+// 这里挂一个临时隐藏 input 承接结果，就不必给选择器加新分支。
+function editWorkStartTime(){
+  WHT.haptic('light');
+  var el=document.getElementById('workStartHidden');
+  if(!el){
+    el=document.createElement('input');
+    el.type='hidden'; el.id='workStartHidden';
+    el.onchange=function(){
+      var s=WHT.getUserSettings();
+      s.workStartTime=el.value;
+      WHT.saveUserSettings(s);
+      WHT.renderCurrentTab(true);
+    };
+    document.body.appendChild(el);
+  }
+  el.value=WHT.clockStartOf();
+  WHT.openTimePicker('workStartHidden', el.value);
+}
 function updateFlextimeSetting(k,v){WHT.haptic('light');var s=WHT.getUserSettings();s.flextimeConfig[k]=v;WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function renameMode(id){var modes=WHT.getUserModes();var m=modes.find(function(x){return x.id===id});if(!m)return;document.getElementById('confirmTitle').textContent='重命名模式';document.getElementById('confirmMsg').innerHTML='<input type="text" class="input" id="renameInput" value="'+WHT.escapeHtml(m.name)+'" maxlength="20" style="margin-top:8px">';var confirmBtn=document.querySelector('#confirmDialog .btn-primary');var cancelBtn=document.querySelector('#confirmDialog .btn');var origConfirm=confirmBtn.textContent;var origCancel=cancelBtn.textContent;confirmBtn.textContent='确认';cancelBtn.textContent='取消';document.getElementById('confirmDialog').classList.add('active');var handler=function(ok){document.getElementById('confirmDialog').classList.remove('active');confirmBtn.textContent=origConfirm;cancelBtn.textContent=origCancel;if(ok){var input=document.getElementById('renameInput');if(input&&input.value.trim()){m.name=input.value.trim();WHT.haptic('medium');WHT.saveUserModes(modes);WHT.renderModeBar();WHT.renderCurrentTab(true)}}};cancelBtn.onclick=function(){handler(false)};confirmBtn.onclick=function(){handler(true)}}
 function deleteMode(id){WHT.showConfirm('确认删除','确定要删除这个模式吗？',function(){WHT.haptic('delete');var m=WHT.getUserModes().filter(function(x){return x.id!==id});WHT.saveUserModes(m);if(st.currentMode===id&&m.length>0)st.currentMode=m[0].id;WHT.renderModeBar();WHT.renderCurrentTab(true)})}
@@ -323,6 +342,7 @@ function removeQuarter(i){WHT.showConfirm('\u786e\u8ba4\u5220\u9664','\u786e\u5b
   // ── 导出到 WHT 命名空间 ──
   WHT.renderSettingsPage = renderSettingsPage;
   WHT.updateSetting = updateSetting;
+  WHT.editWorkStartTime = editWorkStartTime;
   WHT.updateFlextimeSetting = updateFlextimeSetting;
   WHT.renameMode = renameMode;
   WHT.deleteMode = deleteMode;
