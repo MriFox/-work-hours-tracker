@@ -4,7 +4,7 @@
  * 注意：静态资源走 Cache First，改完 js/css 必须同时把下面的 APP_VERSION 加一，
  * 否则老缓存会把修复藏起来（只有页面是 Network First）。
  */
-var APP_VERSION = '4.2.0';
+var APP_VERSION = '4.2.1';
 var CACHE_NAME = 'work-hours-v' + APP_VERSION;
 var STATIC_ASSETS = [
   './',
@@ -44,6 +44,9 @@ var STATIC_ASSETS = [
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
+  './favicon.ico',
+  './icons/favicon-16.png',
+  './icons/favicon-32.png',
   './icons/favicon.png'
 ];
 
