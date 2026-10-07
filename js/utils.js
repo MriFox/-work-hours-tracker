@@ -433,17 +433,28 @@
     var restYear = remainingWorkDays(yearDays, mt, fc);
 
     var status = need <= 0 ? 'done' : (restYear === 0 ? 'overdue' : 'chase');
+    // ⚠️ 两档「还清」都必须是「当天总工时」，否则量纲不同、没法画在同一刻度上比较。
+    //    · 本季度内还清：分子 = need = 本季度剩余待做 + 历史欠账（本季度的事已全在 need 里）→ 除以本季度剩余天数即当天总工时。
+    //    · 到年底还清：分子还要**补上后续季度的常规目标**。
+    //      漏掉它的话，算出来只是「额外要补的量」——分母跨到了后面几个季度，分子却只有本季度那点事，
+    //      会给出「到年底每天只要 2.74h」这种明显不对的结果（后面季度的班照样得上）。
+    //    注：qi === 3（Q4）时 restYear === restQuarter、laterTarget === 0，两档自动一致。
+    var stdH = s.standardHours || 8;
+    var laterTarget = Math.max(0, restYear - restQuarter) * stdH;
     var perQuarter = (status === 'chase' && restQuarter > 0) ? need / restQuarter : 0;
-    var perYear = (status === 'chase' && restYear > 0) ? need / restYear : 0;
+    var perYear = (status === 'chase' && restYear > 0) ? (need + laterTarget) / restYear : 0;
 
     // 下班时间换算挂在更宽松的「到年底」口径上（季度内那个常常不可达）
     var clockScope = perYear > 0 ? '到年底' : (perQuarter > 0 ? '本季度内' : '');
-    var clockExtra = perYear > 0 ? perYear : perQuarter;
-    // 注意 perYear / perQuarter 是「额外要补的量」，不是当天总工时。
-    // 收工时间必须是 日常标准工时 + 额外量，否则会算出「9 点上班 11:40 就下班」这种错。
-    var clockTotal = clockExtra > 0 ? (s.standardHours || 8) + clockExtra : 0;
+    // ⚠️ perQuarter / perYear 本身就是「当天需要工作的总工时」，不是「额外要补的量」。
+    //    （验证：完全按标准进度时 need = 剩余待做、perQuarter 恰好等于 standardHours）
+    //    所以收工时间 = 上班时间 + 该值，**绝不能再加一遍日常工时** ——
+    //    曾写成 std + perQuarter，导致按进度的人看到「09:00 上班 · 03:00 下班」。
+    var clockTotal = perYear > 0 ? perYear : perQuarter;
     var clockStart = clockStartOf();
-    var clockEnd = (clockTotal > 0 && clockTotal <= 16) ? addHoursToTime(clockStart, clockTotal) : '';
+    // clockEnd 仅作 API 字段保留（v0.12.3 起卡片不再用它 ——
+    // 卡片改成在每一档「还清」行里各自给出下班时间，避免一处数字对应两档目标）。
+    var clockEnd = (clockTotal > 0 && clockTotal <= 14) ? addHoursToTime(clockStart, clockTotal) : '';
 
     return {
       carry: carry, dev: sum.dev, cumulative: cumulative, need: need,
@@ -490,43 +501,71 @@
     }
 
     // ── 两档「还清」载荷条 ──
-    // perQuarter / perYear 是「额外要补的量」，当天总工时 = 日常标准工时 + 额外量。
+    // ⚠️ perQuarter / perYear = need ÷ 剩余工作日，它**本身就是「当天总工时」**：
+    //    need = 全季度目标 − 已完成 + 欠账 = 「剩余待做 + 欠账」，
+    //    除以剩余工作日，得到的自然就是「剩下的日子每天要做多少小时」。
+    //    验证：完全按标准进度时（每天正好 9h、无欠账），perQuarter 恰好 == standardHours。
+    //    所以条长 = per，参考线画在 std 处表示「日常标准」；**不能再加一遍 std**。
+    //    曾误当成「额外量」写成 std + per，导致条长虚高、按进度的人也顶到 100%。
     var loads = '';
     if (p.status === 'chase') {
+      // 两档永远都渲染（即便 Q4 时两者相等 —— 那时季度末就是年末，需要让用户看到这一点）
       var items = [];
       if (p.perQuarter > 0) {
         items.push({ name: '本季度内还清', per: p.perQuarter, days: p.restQuarter, tight: true });
       }
-      if (p.perYear > 0 && p.restYear !== p.restQuarter) {
-        items.push({ name: '到年底还清', per: p.perYear, days: p.restYear, tight: false });
+      if (p.perYear > 0) {
+        items.push({
+          name: '本年度内还清', per: p.perYear, days: p.restYear, tight: false,
+          same: p.restYear === p.restQuarter     // 季度末即年末，两档其实是一回事
+        });
       }
       if (items.length) {
-        var totals = items.map(function(x) { return stdH + x.per; });
+        var totals = items.map(function(x) { return x.per; });
         var scale = Math.max(BAR_BASE, Math.max.apply(null, totals));
         var markPct = Math.min(100, stdH / scale * 100);
         loads = items.map(function(x, i) {
           var total = totals[i];
           var pct = Math.min(100, total / scale * 100);
-          // 只有一档时按「是否明显超过日常」上色；两档时更紧的那条走红色
-          var hard = items.length > 1 ? x.tight : (total > stdH * 1.2);
-          // 主数值给「额外要补的量」而不是「当天总工时」：
-          // 前者正好等于 累计仍差 ÷ 剩余工作日，用户自己一除就能对上，
-          // 后者多出日常那一份，容易被当成算错（v0.12.2 改）。
-          // 当天总工时仍放在脚注，并继续作为载荷条长度与刻度的基准。
+          // 上色规则：两档差得明显时，标出更紧的那档（相对比较有意义）；
+          // 两档几乎相等（如 Q4 时季度末=年末）则按绝对负荷判断 ——
+          // 否则会把 9.5h 这种只比日常多 5% 的轻负荷也标成红色。
+          var spread = items.length > 1 && Math.abs(items[0].per - items[1].per) > stdH * 0.05;
+          var hard = spread ? x.tight : (total > stdH * 1.15);
+          // 与日常的差值可能为负 —— 说明进度领先，只需要比标准工时更少的投入
+          var delta = total - stdH;
+          // 按当前上班时间推出下班点。跨过午夜的要标出天数差，
+          // 否则「09:00 上班 · 03:47 下班」会被读成早上三点。
+          var off = '';
+          if (total > 0) {
+            var p0 = String(p.clockStart || '').split(':');
+            var base = parseInt(p0[0], 10) * 60 + (parseInt(p0[1], 10) || 0);
+            if (!isNaN(base)) {
+              var endMin = base + Math.round(total * 60);
+              var days = Math.floor(endMin / 1440);
+              var mm = ((endMin % 1440) + 1440) % 1440;
+              var hm = String(Math.floor(mm / 60)).padStart(2, '0') + ':' +
+                       String(mm % 60).padStart(2, '0');
+              // 0 天 = 当天；1 天 = 次日；2 天以上直接写「N 天后」
+              off = (days === 0 ? '' : days === 1 ? '次日 ' : days + ' 天后 ') + hm;
+            }
+          }
           return '<div class="qcum-load' + (hard ? ' is-hard' : '') + '">' +
               '<div class="qcum-load-top">' +
-                '<span class="qcum-load-name">' + x.name + '</span>' +
-                '<span class="qcum-load-val">+' + x.per.toFixed(2) + '<i>h / 天</i></span>' +
+                '<span class="qcum-load-name">' + x.name + (x.same ? '<em>（即季度末）</em>' : '') + '</span>' +
+                '<span class="qcum-load-val">' + total.toFixed(2) + '<i>h / 天</i></span>' +
               '</div>' +
               '<div class="qcum-load-track" role="img" aria-label="' +
-                escapeHtml(x.name + '：每天需额外补 ' + x.per.toFixed(2) + ' 小时，日常 ' + stdH +
-                           ' 小时，当天合计 ' + total.toFixed(2) + ' 小时') + '">' +
+                escapeHtml(x.name + '每天需工作 ' + total.toFixed(2) + ' 小时（日常标准 ' + stdH + ' 小时，' +
+                           (delta >= 0 ? '超出 ' + delta.toFixed(2) : '少 ' + (-delta).toFixed(2)) + ' 小时）') + '">' +
                 '<i class="qcum-load-fill" style="width:' + pct.toFixed(1) + '%"></i>' +
                 '<s class="qcum-load-mark" style="left:' + markPct.toFixed(1) + '%"></s>' +
               '</div>' +
               '<div class="qcum-load-foot">' +
-                '<span>剩 ' + x.days + ' 个工作日</span>' +
-                '<span>当天合计 ' + total.toFixed(2) + 'h</span>' +
+                '<span>剩 ' + x.days + ' 个工作日' +
+                  (off ? ' · 需 <b>' + off + '</b> 下班' : '') + '</span>' +
+                '<span>' + (delta >= 0 ? '比日常多 ' + delta.toFixed(2) + 'h'
+                                       : '比日常少 ' + (-delta).toFixed(2) + 'h（进度领先）') + '</span>' +
               '</div>' +
             '</div>';
         }).join('');
@@ -539,13 +578,13 @@
       : '';
 
     // 收工时间行。「按 X 上班计」里的 X 可以直接点开改（与设置页共用 editWorkStartTime）。
-    // 不换算下班点（当天总工时 > 16h）时只留前半句，保证卡片上始终能改上班时间。
+    // 上班时间行：只负责展示「几点上班」并作为修改入口。
+    // 各档的「需几点下班」放在各自的载荷条行里，避免一处数字对应不上两档目标。
     var clock = (p.status === 'chase')
       ? '<div class="qcum-clock">' +
           '<span class="qcum-clock-dot" aria-hidden="true"></span>' +
-          '按 <span class="qcum-clock-time" role="button" tabindex="0" ' +
-            'onclick="WHT.editWorkStartTime()" title="点击修改标准上班时间">' + p.clockStart + '</span> 上班计' +
-          (p.clockEnd ? ' · ' + p.clockScope + '约 <strong>' + p.clockEnd + '</strong> 下班' : '') +
+          '按照 <span class="qcum-clock-time" role="button" tabindex="0" ' +
+            'onclick="WHT.editWorkStartTime()" title="点击修改标准上班时间">' + p.clockStart + '</span> 上班' +
         '</div>'
       : '';
 
@@ -555,13 +594,13 @@
         '<span class="qcum-edit" role="button" tabindex="0">设置期初结余 ›</span>' +
       '</div>' +
       '<div class="qcum-hero">' +
-        '<span class="qcum-hero-value">' + num + '<i class="qcum-unit">' + unit + '</i></span>' +
         '<span class="qcum-hero-label">' + label + '</span>' +
+        '<span class="qcum-hero-value">' + num + '<i class="qcum-unit">' + unit + '</i></span>' +
       '</div>' +
       '<div class="qcum-compose">' +
         '<span class="qcum-compose-item">期初结余<b class="' + (p.carry < 0 ? 'neg' : p.carry > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.carry) + '</b></span>' +
         '<span class="qcum-compose-op" aria-hidden="true">+</span>' +
-        '<span class="qcum-compose-item">本季度<b class="' + (p.dev < 0 ? 'neg' : p.dev > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.dev) + '</b></span>' +
+        '<span class="qcum-compose-item">本季度结余<b class="' + (p.dev < 0 ? 'neg' : p.dev > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.dev) + '</b></span>' +
       '</div>' +
       loads +
       note +

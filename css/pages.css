@@ -2005,6 +2005,10 @@
   gap: 8px; margin-bottom: 6px;
 }
 .qcum-load-name { font-size: 12px; color: var(--text-secondary); }
+/* 「（即季度末）」这类补充说明，比标签再淡一档 */
+.qcum-load-name em {
+  font-style: normal; font-size: 10px; color: var(--text-muted);
+}
 .qcum-load-val {
   font-size: 15px; font-weight: 700;
   color: var(--color-accent-text);
@@ -2036,8 +2040,14 @@
 }
 .qcum-load-foot {
   display: flex; justify-content: space-between;
+  gap: 8px;
   margin-top: 5px;
   font-size: 10px; color: var(--text-muted);
+}
+/* 「需 20:39 下班」里的时间要跳出来，否则混在小字里看不见 */
+.qcum-load-foot b {
+  font-weight: 700; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 非追赶状态的完成度补充行 */
