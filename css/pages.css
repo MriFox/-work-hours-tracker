@@ -2044,11 +2044,15 @@
   margin-top: 5px;
   font-size: 10px; color: var(--text-muted);
 }
-/* 「需 20:39 下班」里的时间要跳出来，否则混在小字里看不见 */
+/* 「需 20:39 下班」里的时间是这一行最该被看到的数：
+ * 默认走强调色，负荷偏重（is-hard）时转红 —— 与整行的大数值同色，语义一致。
+ * 不用无条件全红：轻负荷也标红会变成「狼来了」，反而失去警示作用。 */
 .qcum-load-foot b {
-  font-weight: 700; color: var(--text-primary);
+  font-weight: 700;
+  color: var(--color-accent-text);
   font-variant-numeric: tabular-nums;
 }
+.qcum-load.is-hard .qcum-load-foot b { color: var(--color-danger); }
 
 /* 非追赶状态的完成度补充行 */
 .qcum-note {
