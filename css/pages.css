@@ -1389,6 +1389,13 @@
   display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
+/* 四卡下方的口径说明：节假日工时只进加班费、不进目标 */
+.stat-note {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-3);
+  font-size: 11px; line-height: 1.5; text-align: center;
+  color: var(--text-secondary);
+}
+.stat-note strong { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
 .quarter-stat-card {
   background: var(--bg-card);
   border: 0.5px solid var(--border-card);

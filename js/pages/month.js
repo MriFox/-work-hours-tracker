@@ -23,7 +23,9 @@
     // diff 沿用既有语义：正数 = 超额领先，负数 = 还差（pace.need 是「还需」，故取反）
     var diff = th - tar;
     var pg = tar > 0 ? Math.min(100, (th / tar) * 100) : 0;
-    var isEmpty = th === 0;
+    // 「待开始」只表示本月完全没有记录。若沿用 th === 0，则「只在节假日上过班」
+    // 也会被判定成未开始，整页显示「待开始」，与旁边的加班费自相矛盾。
+    var isEmpty = !mr.some(function(x) { return x.status !== 'working'; });
     // 进度节奏改用工作日口径（已过工作日 / 本月总工作日），与追赶提示同源
     var passedRatio = workDays > 0 ? Math.min(1, pace.elapsedWorkDays / workDays) : 1;
     var ringClass = WHT.paceClass(pg, passedRatio * 100, isEmpty);
@@ -76,6 +78,11 @@
         '</div>'
       ) +
     '</div>';
+
+    // 节假日工时进加班费、不进目标，实际显示 0 时容易被误判成「加班费没算」
+    var holidayNote = pace.holidayHours > 0
+      ? '<div class="stat-note">节假日 <strong>' + pace.holidayHours.toFixed(1) + 'h</strong> 已计入加班费，不计入目标工时</div>'
+      : '';
 
     var ringHtml = '<div class="quarter-ring-container">' +
       '<svg class="quarter-ring" viewBox="0 0 200 110">' +
@@ -139,7 +146,7 @@
 
     var paceHtml = WHT.paceCardHtml(pace);
 
-    c.innerHTML = navHtml + statsHtml + ringHtml + paceHtml + calHtml + '<div id="monthDetail"></div>';
+    c.innerHTML = navHtml + statsHtml + holidayNote + ringHtml + paceHtml + calHtml + '<div id="monthDetail"></div>';
 
     if (!st.selectedDay) st.selectedDay = d.includes(WHT.today()) ? WHT.today() : d[0];
     renderMonthDetail(st.selectedDay);

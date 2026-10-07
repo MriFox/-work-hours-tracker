@@ -601,6 +601,7 @@
   WHT.remainingWorkDays = remainingWorkDays;
   WHT.monthPace = monthPace;
   WHT.quarterSummary = quarterSummary;
+  WHT.quarterHasData = quarterHasData;
   WHT.quarterCarry = quarterCarry;
   WHT.quarterPace = quarterPace;
   WHT.quarterCardHtml = quarterCardHtml;
