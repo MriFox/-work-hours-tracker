@@ -24,7 +24,16 @@
 ## 安装
 
 ### Android APK
-下载 `release/牛马计时器-v0.12.1.apk` 直接安装（已签名，4.73 MB，Android 7.0+）。
+下载 `release/牛马计时器-v0.12.1.apk` 直接安装（4.73 MB，Android 7.0+）。
+
+覆盖升级：本包与历史版本使用同一把签名密钥（Android Debug），
+手机上有旧版时可直接覆盖安装，**工时记录不会丢失**。
+签名指纹 SHA-256：`2f43eb2614f525158d30851afe918a67290009ac0af262572763108ba4526773`
+
+> 该密钥位于 `C:\Users\<用户名>\.android\debug.keystore`，由 Android Studio 生成。
+> **换电脑或重装系统前请先备份它**，否则后续版本无法再覆盖升级。
+> 本项目另备有 `android/niulai-release.jks`，仅用于将来上架应用商店的首次发布
+> （启用它会与现有安装冲突，必须卸载重装）。
 
 ### PWA（浏览器）
 1. 打开 https://mrifox.github.io/-work-hours-tracker/
