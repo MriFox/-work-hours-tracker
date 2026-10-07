@@ -509,19 +509,24 @@
           var pct = Math.min(100, total / scale * 100);
           // 只有一档时按「是否明显超过日常」上色；两档时更紧的那条走红色
           var hard = items.length > 1 ? x.tight : (total > stdH * 1.2);
+          // 主数值给「额外要补的量」而不是「当天总工时」：
+          // 前者正好等于 累计仍差 ÷ 剩余工作日，用户自己一除就能对上，
+          // 后者多出日常那一份，容易被当成算错（v0.12.2 改）。
+          // 当天总工时仍放在脚注，并继续作为载荷条长度与刻度的基准。
           return '<div class="qcum-load' + (hard ? ' is-hard' : '') + '">' +
               '<div class="qcum-load-top">' +
                 '<span class="qcum-load-name">' + x.name + '</span>' +
-                '<span class="qcum-load-val">' + total.toFixed(2) + '<i>h / 天</i></span>' +
+                '<span class="qcum-load-val">+' + x.per.toFixed(2) + '<i>h / 天</i></span>' +
               '</div>' +
               '<div class="qcum-load-track" role="img" aria-label="' +
-                escapeHtml(x.name + '每天 ' + total.toFixed(2) + ' 小时，日常标准 ' + stdH + ' 小时') + '">' +
+                escapeHtml(x.name + '：每天需额外补 ' + x.per.toFixed(2) + ' 小时，日常 ' + stdH +
+                           ' 小时，当天合计 ' + total.toFixed(2) + ' 小时') + '">' +
                 '<i class="qcum-load-fill" style="width:' + pct.toFixed(1) + '%"></i>' +
                 '<s class="qcum-load-mark" style="left:' + markPct.toFixed(1) + '%"></s>' +
               '</div>' +
               '<div class="qcum-load-foot">' +
                 '<span>剩 ' + x.days + ' 个工作日</span>' +
-                '<span>比日常多 ' + x.per.toFixed(2) + 'h</span>' +
+                '<span>当天合计 ' + total.toFixed(2) + 'h</span>' +
               '</div>' +
             '</div>';
         }).join('');
@@ -534,13 +539,13 @@
       : '';
 
     // 收工时间行。「按 X 上班计」里的 X 可以直接点开改（与设置页共用 editWorkStartTime）。
-    // 即便不换算下班点（总工时 > 16h），这一行也保留，保证卡片上始终能改上班时间。
+    // 不换算下班点（当天总工时 > 16h）时只留前半句，保证卡片上始终能改上班时间。
     var clock = (p.status === 'chase')
       ? '<div class="qcum-clock">' +
           '<span class="qcum-clock-dot" aria-hidden="true"></span>' +
           '按 <span class="qcum-clock-time" role="button" tabindex="0" ' +
-            'onclick="WHT.editWorkStartTime()" title="点击修改标准上班时间">' + p.clockStart + '</span> 上班计 · 含日常 ' + stdH + 'h' +
-          (p.clockEnd ? '，' + p.clockScope + '约 <strong>' + p.clockEnd + '</strong> 下班' : '') +
+            'onclick="WHT.editWorkStartTime()" title="点击修改标准上班时间">' + p.clockStart + '</span> 上班计' +
+          (p.clockEnd ? ' · ' + p.clockScope + '约 <strong>' + p.clockEnd + '</strong> 下班' : '') +
         '</div>'
       : '';
 
