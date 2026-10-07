@@ -184,6 +184,38 @@ function applyPunchTimeAdjust(type, timeStr) {
   WHT.renderCurrentTab(true);
 }
 
+// 打卡卡片点击分发：待打卡→打卡；待下班→下班；已打卡→修改时间
+function onPunchCardTap(el, type) {
+  if (!el) return;
+  if (el.classList.contains('punch-btn--idle')) {
+    if (type === 'start') punchIn(); else punchOut();
+    return;
+  }
+  if (el.classList.contains('punch-btn--prompt')) { punchOut(); return; }
+  adjustPunchTime(type);
+}
+
+// 快捷补录：展开手动补录并预填日期（offset=1 为昨天）
+function quickBackfillDay(offset) {
+  WHT.haptic('light');
+  var d = new Date(Date.now() - WHT.ONE_DAY_MS * offset).toISOString().slice(0,10);
+  var mc = document.getElementById('manualContent');
+  var mtb = document.getElementById('manualToggleBtn');
+  var mti = document.getElementById('manualToggleIcon');
+  if (mc && !mc.classList.contains('expanded')) {
+    mc.classList.add('expanded');
+    if (mtb) mtb.classList.add('expanded');
+    if (mti) mti.textContent = '▼';
+    st._manualExpanded = true;
+  }
+  var dateEl = document.getElementById('recordDate');
+  if (dateEl) dateEl.value = d;
+  st.formDate = d;
+  onRecordDateChange();
+  var form = document.querySelector('.record-form');
+  if (form && form.scrollIntoView) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 // ========== 记录页渲染 ==========
 
 function renderRecordPage(c) {
@@ -214,52 +246,64 @@ function renderRecordPage(c) {
   // ── 上班打卡按钮 ──
   var startBtnClass = 'punch-btn punch-btn--start';
   var startBtnIcon = '<div class="punch-btn-icon">🌅</div>';
-  var startBtnTime, startBtnLabel;
+  var startBtnTime, startBtnLabel, startBtnHint, startAria;
   if (punchState === 'idle') {
     startBtnClass += ' punch-btn--idle';
     startBtnTime = '<div class="punch-btn-time">--:--</div>';
     startBtnLabel = '<div class="punch-btn-label">上班打卡</div>';
+    startBtnHint = '';
+    startAria = '上班打卡，点击记录当前时间';
   } else {
     var startTimeStr = tr.startTime;
     startBtnClass += ' punch-btn--punched';
     if (punchState === 'done') startBtnClass += ' punch-btn--done';
     startBtnIcon = '<div class="punch-btn-icon" style="background:rgba(91,168,140,0.12);color:var(--color-success)">✅</div>';
-    startBtnTime = '<div class="punch-btn-time" onclick="event.stopPropagation();adjustPunchTime(\'start\')">' + WHT.escapeHtml(startTimeStr) + '</div>';
+    startBtnTime = '<div class="punch-btn-time">' + WHT.escapeHtml(startTimeStr) + '</div>';
     startBtnLabel = '<div class="punch-btn-label">上班打卡</div>';
+    startBtnHint = '<div class="punch-btn-hint">点击修改</div>';
+    startAria = '上班打卡时间 ' + startTimeStr + '，点击修改';
   }
 
   // ── 下班打卡按钮 ──
   var endBtnClass = 'punch-btn punch-btn--end';
   var endBtnIcon = '<div class="punch-btn-icon">🌙</div>';
-  var endBtnTime, endBtnLabel;
+  var endBtnTime, endBtnLabel, endBtnHint, endAria;
   if (punchState === 'idle') {
     endBtnClass += ' punch-btn--idle';
     endBtnTime = '<div class="punch-btn-time">--:--</div>';
     endBtnLabel = '<div class="punch-btn-label">下班打卡</div>';
+    endBtnHint = '';
+    endAria = '下班打卡，需先进行上班打卡';
   } else if (punchState === 'working') {
     endBtnClass += ' punch-btn--prompt';
     endBtnTime = '<div class="punch-btn-time">--:--</div>';
     endBtnLabel = '<div class="punch-btn-label">下班打卡</div>';
+    endBtnHint = '';
+    endAria = '下班打卡，点击记录当前时间';
   } else {
     var et = tr.endTime;
     endBtnClass += ' punch-btn--punched punch-btn--done';
     endBtnIcon = '<div class="punch-btn-icon" style="background:rgba(91,168,140,0.12);color:var(--color-success)">✅</div>';
-    endBtnTime = '<div class="punch-btn-time" onclick="event.stopPropagation();adjustPunchTime(\'end\')">' + WHT.escapeHtml(et) + '</div>';
+    endBtnTime = '<div class="punch-btn-time">' + WHT.escapeHtml(et) + '</div>';
     endBtnLabel = '<div class="punch-btn-label">下班打卡</div>';
+    endBtnHint = '<div class="punch-btn-hint">点击修改</div>';
+    endAria = '下班打卡时间 ' + et + '，点击修改';
   }
 
   // ── 打卡区 HTML ──
   var punchHtml =
     '<div class="punch-card">' +
-      '<div class="' + startBtnClass + '" onclick="if(this.classList.contains(\'punch-btn--idle\'))punchIn()">' +
+      '<div class="' + startBtnClass + '" onclick="onPunchCardTap(this,\'start\')" role="button" tabindex="0" aria-label="' + WHT.escapeHtml(startAria) + '">' +
         startBtnIcon +
         startBtnTime +
         startBtnLabel +
+        startBtnHint +
       '</div>' +
-      '<div class="' + endBtnClass + '" onclick="if(this.classList.contains(\'punch-btn--prompt\')||this.classList.contains(\'punch-btn--idle\'))punchOut()">' +
+      '<div class="' + endBtnClass + '" onclick="onPunchCardTap(this,\'end\')" role="button" tabindex="0" aria-label="' + WHT.escapeHtml(endAria) + '">' +
         endBtnIcon +
         endBtnTime +
         endBtnLabel +
+        endBtnHint +
       '</div>' +
     '</div>';
 
@@ -333,6 +377,10 @@ function renderRecordPage(c) {
         '<span>📝 手动补录</span>' +
         '<span class="toggle-icon" id="manualToggleIcon">▶</span>' +
       '</button>' +
+      '<div class="backfill-row">' +
+        '<button class="quick-backfill" onclick="quickBackfillDay(1)">补录昨天</button>' +
+        '<button class="quick-backfill" onclick="quickBackfillDay(2)">补录前天</button>' +
+      '</div>' +
       '<div class="manual-content" id="manualContent">' +
         '<div class="bento record-form" style="margin-top:0">' +
           '<div class="form-section-title">手动录入</div>' +
@@ -430,11 +478,15 @@ function renderRecordPage(c) {
       '</div>';
   }
 
+  // ── 本月追赶提示（按工作日节奏，与月度页同源） ──
+  var paceHint = WHT.paceHintHtml(WHT.monthPace(now.getFullYear(), now.getMonth()));
+
   // ── 组装页面 ──
   c.innerHTML =
     '<div class="bento-grid-record">' +
       summaryHtml +
       punchHtml +
+      paceHint +
       manualHtml +
       ch +
       recentHtml +
@@ -465,12 +517,14 @@ function renderRecordPage(c) {
 // ── 展示记录项（过滤掉 working 状态只在手动补录和最近列表中隐藏） ──
 function renderRecordItem(r) {
   var b = [];
-  if (r.isHoliday) b.push('<span class="badge badge-holiday">节假日</span>');
-  if (WHT.isWeekend(r.date)) b.push('<span class="badge badge-weekend">周末</span>');
+  var dt = WHT.getDayType(r.date);
+  if (dt.holiday) b.push('<span class="badge badge-holiday">' + (dt.forced ? '休息' : '节假日') + '</span>');
+  else if (dt.type === 'workday') b.push('<span class="badge badge-workday">调休上班</span>');
+  else if (dt.type === 'weekend') b.push('<span class="badge badge-weekend">周末</span>');
   var isWorking = r.status === 'working' || (!r.endTime && r.startTime);
   var timeDisplay = isWorking
     ? WHT.escapeHtml(r.startTime) + ' - <span style="color:var(--color-warning);font-weight:600">进行中</span>'
-    : WHT.escapeHtml(r.startTime) + ' - ' + WHT.escapeHtml(r.endTime) + ' <span class="hours">' + r.hours + 'h</span>';
+    : WHT.escapeHtml(r.startTime) + ' - ' + WHT.escapeHtml(r.endTime) + ' <span class="hours">' + r.hours.toFixed(1) + 'h</span>';
   return '<div class="record-item">' +
     '<div class="record-item-main">' +
       '<div class="record-item-date">' + WHT.formatDate(r.date) + '</div>' +
@@ -560,7 +614,7 @@ function onRecordDateChange() {
     if (noteEl) noteEl.value = r.note || '';
     st.formStart = r.startTime; st.formEnd = r.endTime; st.formNote = r.note || '';
     var h = document.getElementById('recordHoliday');
-    if (h) { h.classList.toggle('active', r.isHoliday); st.formHoliday = r.isHoliday; }
+    if (h) { var isRest = WHT.getDayType(d).holiday; h.classList.toggle('active', isRest); st.formHoliday = isRest; }
     calcRecordHours();
     WHT.showToast('📝 该日期已有记录，已加载', 'info');
   } else {
@@ -597,7 +651,7 @@ function saveRecord() {
   var e = (document.getElementById('recordEnd')||{}).value;
   var n = (document.getElementById('recordNote')||{}).value || '';
   var h = document.getElementById('recordHoliday');
-  var isH = h ? h.classList.contains('active') : WHT.isHoliday(d);
+  var isH = h ? h.classList.contains('active') : WHT.getDayType(d).holiday;
   if (!d || !s || !e) { WHT.showToast('请填写完整信息', 'warning'); return; }
   var hrs = WHT.calculateHours(s, e);
   var r = WHT.getUserRecords();
@@ -605,6 +659,7 @@ function saveRecord() {
   var rec = { id: ex >= 0 ? r[ex].id : WHT.genId(), date: d, startTime: s, endTime: e, hours: hrs, isHoliday: isH, note: n, modeId: st.currentMode, status: 'done' };
   if (ex >= 0) r[ex] = rec; else r.push(rec);
   WHT.saveUserRecords(r);
+  if (h) WHT.setRestFlag(d, isH);
   autoEarnCompTime(d, hrs);
   st.formDate = d; st.formStart = s; st.formEnd = e; st.formNote = n; st.formHoliday = isH;
   var form = document.querySelector('.record-form');
@@ -655,7 +710,7 @@ function deleteRecord(id) {
 function editRecord(id) {
   var r = WHT.getUserRecords().find(function(x) { return x.id === id; });
   if (!r) return;
-  st.formDate = r.date; st.formStart = r.startTime; st.formEnd = r.endTime; st.formNote = r.note || ''; st.formHoliday = r.isHoliday;
+  st.formDate = r.date; st.formStart = r.startTime; st.formEnd = r.endTime; st.formNote = r.note || ''; st.formHoliday = WHT.getDayType(r.date).holiday;
   var dateEl = document.getElementById('recordDate');
   var startEl = document.getElementById('recordStart');
   var endEl = document.getElementById('recordEnd');
@@ -665,7 +720,7 @@ function editRecord(id) {
   if (endEl) endEl.value = r.endTime || '';
   if (noteEl) noteEl.value = r.note || '';
   var h = document.getElementById('recordHoliday');
-  if (h) h.classList.toggle('active', r.isHoliday);
+  if (h) h.classList.toggle('active', WHT.getDayType(r.date).holiday);
   calcRecordHours();
   // 展开手动补录区
   var mc = document.getElementById('manualContent');
@@ -766,6 +821,8 @@ function deleteCompTime(id) {
   WHT.punchOut = punchOut;
   WHT.adjustPunchTime = adjustPunchTime;
   WHT.applyPunchTimeAdjust = applyPunchTimeAdjust;
+  WHT.onPunchCardTap = onPunchCardTap;
+  WHT.quickBackfillDay = quickBackfillDay;
   WHT.renderRecordPage = renderRecordPage;
   WHT.renderTimerDisplay = renderTimerDisplay;
   WHT.startWorkingTimer = startWorkingTimer;

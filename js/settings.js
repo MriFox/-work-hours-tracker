@@ -4,6 +4,8 @@
   var WHT = window.WHT;
   var st = WHT.state;
 
+  var MODE_TYPE_LABEL = { civil: '标准工时', comprehensive: '综合工时', flextime: '大小周', custom: '自定义' };
+
 // ═══ iOS 风格设置页 ═══
 function renderSettingsPage(c) {
   var s = WHT.getUserSettings();
@@ -19,7 +21,7 @@ function renderSettingsPage(c) {
     return '<div class="settings-row">' +
       '<div class="settings-row-left">' +
         '<span class="settings-icon" style="font-size:14px">' + h(x.icon) + '</span>' +
-        '<div><div class="settings-label">' + h(x.name) + '</div><div class="mode-list-type">' + h(x.type) + '</div></div>' +
+        '<div><div class="settings-label">' + h(x.name) + '</div><div class="mode-list-type">' + h(MODE_TYPE_LABEL[x.type] || x.type) + '</div></div>' +
       '</div>' +
       '<div class="settings-row-actions">' +
         '<button class="btn-sm" onclick="event.stopPropagation();renameMode(\'' + h(x.id) + '\')">重命名</button>' +
@@ -40,11 +42,17 @@ function renderSettingsPage(c) {
   }).join('');
 
   // 季度配置列表行
+  var quarterYear = new Date().getFullYear();
   var quarterRows = (s.quarterConfig || []).map(function(q, i) {
+    var cv = (s.quarterCarry || {})[quarterYear + '-' + i];
+    var carryTxt = (typeof cv === 'number' && isFinite(cv))
+      ? '<span class="settings-value">期初结余 ' + WHT.fmtSignedHours(cv) + '</span>'
+      : '';
     return '<div class="settings-row">' +
       '<div class="settings-row-left">' +
         '<span class="settings-label">' + h(q.name) + '</span>' +
         '<span class="settings-value">' + (q.months || []).join(',') + '月</span>' +
+        carryTxt +
       '</div>' +
       '<div class="settings-row-actions">' +
         '<button class="btn-sm" onclick="event.stopPropagation();editQuarter(' + i + ')">修改</button>' +
@@ -208,7 +216,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">工时记录</div>' +
-        '<div class="settings-about-version">v0.5.7</div>' +
+        '<div class="settings-about-version">v0.8.0</div>' +
       '</div>' +
 
     '</div>';
@@ -293,7 +301,7 @@ function deleteMode(id){WHT.showConfirm('确认删除','确定要删除这个模
 function editCommonSlot(i){WHT.haptic('light');var s=WHT.getUserSettings();var slot=s.commonSlots[i];if(!slot)return;document.getElementById('userModal').querySelector('.modal-title').textContent='编辑时段';document.getElementById('userModal').querySelector('.modal-sheet').innerHTML='<div class="modal-handle"></div><div class="modal-title">编辑时段</div><div class="form-group"><label class="form-label">开始时间</label><input type="text" class="input" id="slotEditStart" value="'+WHT.escapeHtml(slot.start)+'" data-picker="time" readonly onclick="WHT.openTimePicker(\'slotEditStart\',this.value)"></div><div class="form-group"><label class="form-label">结束时间</label><input type="text" class="input" id="slotEditEnd" value="'+WHT.escapeHtml(slot.end)+'" data-picker="time" readonly onclick="WHT.openTimePicker(\'slotEditEnd\',this.value)"></div><button class="btn btn-primary w-full mt-12" onclick="saveCommonSlotEdit('+i+')">保存</button>';document.getElementById('userModal').classList.add('active')}
 function saveCommonSlotEdit(i){WHT.haptic('medium');var s=WHT.getUserSettings();if(!s.commonSlots[i])return;var start=document.getElementById('slotEditStart').value;var end=document.getElementById('slotEditEnd').value;if(!start||!end){WHT.showToast('请填写开始和结束时间','warning');return}s.commonSlots[i]={start:start,end:end};WHT.saveUserSettings(s);document.getElementById('userModal').classList.remove('active');WHT.renderCurrentTab(true)}
 function editQuarter(i){WHT.haptic('light');var s=WHT.getUserSettings();var q=s.quarterConfig[i];if(!q)return;var mNames='一二三四五六七八九十十一十二'.split('');var mChecks=[1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){return'<label style="display:inline-flex;align-items:center;gap:4px;margin:3px 6px;font-size:13px"><input type="checkbox" value="'+m+'" '+(q.months.indexOf(m)>=0?'checked':'')+'>'+mNames[m-1]+'月</label>'}).join('');document.getElementById('userModal').querySelector('.modal-title').textContent='编辑季度';document.getElementById('userModal').querySelector('.modal-sheet').innerHTML='<div class="modal-handle"></div><div class="modal-title">编辑季度</div><div class="form-group"><label class="form-label">名称</label><input type="text" class="input" id="quarterEditName" value="'+WHT.escapeHtml(q.name)+'" maxlength="20"></div><div class="form-group"><label class="form-label">月份</label><div id="quarterEditMonths" style="padding:8px 0">'+mChecks+'</div></div><button class="btn btn-primary w-full mt-12" onclick="saveQuarterEdit('+i+')">保存</button>';document.getElementById('userModal').classList.add('active')}
-function saveQuarterEdit(i){WHT.haptic('medium');var s=WHT.getUserSettings();if(!s.quarterConfig[i])return;var name=document.getElementById('quarterEditName').value.trim();if(!name){WHT.showToast('请输入名称','warning');return}var months=[];document.querySelectorAll('#quarterEditMonths input:checked').forEach(function(cb){months.push(parseInt(cb.value))});if(months.length===0){WHT.showToast('请至少选一个月','warning');return}s.quarterConfig[i]={name:name,months:months};WHT.saveUserSettings(s);document.getElementById('userModal').classList.remove('active');WHT.renderCurrentTab(true)}
+function saveQuarterEdit(i){WHT.haptic('medium');var s=WHT.getUserSettings();if(!s.quarterConfig[i])return;var name=document.getElementById('quarterEditName').value.trim();if(!name){WHT.showToast('请输入名称','warning');return}var months=[];document.querySelectorAll('#quarterEditMonths input:checked').forEach(function(cb){months.push(parseInt(cb.value))});if(months.length===0){WHT.showToast('请至少选一个月','warning');return}s.quarterConfig[i]=Object.assign({},s.quarterConfig[i],{name:name,months:months});WHT.saveUserSettings(s);document.getElementById('userModal').classList.remove('active');WHT.renderCurrentTab(true)}
 function addCommonSlot(){WHT.haptic('medium');var s=WHT.getUserSettings();s.commonSlots.push({start:'09:00',end:'18:00'});WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}
 function removeCommonSlot(i){WHT.showConfirm('\u786e\u8ba4\u5220\u9664','\u786e\u5b9a\u5220\u9664\u8fd9\u4e2a\u5e38\u7528\u65f6\u6bb5\u5417\uff1f',function(){WHT.haptic('delete');var s=WHT.getUserSettings();s.commonSlots.splice(i,1);WHT.saveUserSettings(s);WHT.renderCurrentTab(true)})}
 function addQuarter(){WHT.haptic('medium');var s=WHT.getUserSettings();s.quarterConfig.push({name:'Q'+(s.quarterConfig.length+1),months:[]});WHT.saveUserSettings(s);WHT.renderCurrentTab(true)}

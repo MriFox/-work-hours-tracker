@@ -13,17 +13,7 @@
     var wS = new Date(d[0] + 'T00:00:00');
     var wE = new Date(d[6] + 'T00:00:00');
     var md = WHT.getUserModes().find(function(x) { return x.id === st.currentMode; });
-    var workDays;
-    if (md && md.type === 'flextime' && s.flextimeConfig && s.flextimeConfig.startDate) {
-      var fc = s.flextimeConfig;
-      var wm = new Date(d[0] + 'T00:00:00'); var adj = wm.getDay(); if (adj === 0) adj = 7; wm.setDate(wm.getDate() - (adj - 1));
-      var sm = new Date(fc.startDate + 'T00:00:00'); adj = sm.getDay(); if (adj === 0) adj = 7; sm.setDate(sm.getDate() - (adj - 1));
-      var wkDiff = Math.floor((wm - sm) / 86400000 / 7);
-      var isBig = (wkDiff % 2 === 0) ? fc.startIsBigWeek : !fc.startIsBigWeek;
-      workDays = d.filter(function(x) { var w = WHT.getDayOfWeek(x); return !WHT.isHoliday(x) && (w >= 1 && w <= 5 || (w === 6 && isBig)); }).length;
-    } else {
-      workDays = d.filter(function(x) { var w = WHT.getDayOfWeek(x); return w >= 1 && w <= 5 && !WHT.isHoliday(x); }).length;
-    }
+    var workDays = WHT.countWorkDays(d, md && md.type, s.flextimeConfig);
     var t = s.standardHours * workDays;
     var diff = ws.total - t;
     var isCurrentWeek = st.weekOffset === 0;
@@ -32,9 +22,10 @@
     var todayStr = WHT.today();
     var todayIdx = d.indexOf(todayStr);
     var daysPassed = todayIdx >= 0 ? todayIdx + 1 : 7;
-    var expectedPct = Math.min(100, Math.round(daysPassed / 7 * 100));
-    var pctRatio = expectedPct > 0 ? pct / expectedPct : 1;
-    var pctClass = isEmpty ? 'empty' : pctRatio >= 1 ? 'good' : pctRatio >= 0.75 ? 'ok' : pctRatio >= 0.5 ? 'warn' : 'bad';
+    var passedRatio = daysPassed / 7;
+    var expectedPct = Math.min(100, Math.round(passedRatio * 100));
+    var pctClass = WHT.paceClass(pct, expectedPct, isEmpty);
+    var diffC = WHT.diffColor(diff, passedRatio);
     var avg = ws.days > 0 ? (ws.total / ws.days) : 0;
     var circumference = 2 * Math.PI * 80 * 180 / 360;
     var offset = isEmpty ? circumference : circumference * (1 - pct / 100);
@@ -53,7 +44,7 @@
     '<div class="quarter-stats-grid">' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">🎯</div><div class="quarter-stat-value">' + t + 'h</div><div class="quarter-stat-label">目标(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">✅</div><div class="quarter-stat-value">' + ws.total.toFixed(1) + 'h</div><div class="quarter-stat-label">实际(h)</div></div>' +
-      '<div class="quarter-stat-card"><div class="quarter-stat-icon">' + (diff >= 0 ? '📈' : '📉') + '</div><div class="quarter-stat-value" style="color:' + (diff >= 0 ? 'var(--color-success)' : 'var(--color-danger)') + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'h</div><div class="quarter-stat-label">差额(h)</div></div>' +
+      '<div class="quarter-stat-card"><div class="quarter-stat-icon">' + (diff >= 0 ? '📈' : '📉') + '</div><div class="quarter-stat-value" style="color:' + diffC + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + 'h</div><div class="quarter-stat-label">差额(h)</div></div>' +
       '<div class="quarter-stat-card"><div class="quarter-stat-icon">💰</div><div class="quarter-stat-value">' + (hf === 0 ? '<span class="empty-text">¥0.00</span>' : '¥' + hf.toFixed(2)) + '</div><div class="quarter-stat-label">加班费(元)</div></div>' +
     '</div>' +
     '<div class="week-days">' +
@@ -65,14 +56,18 @@
         var cls = 'week-day';
         if (isToday) cls += ' today';
         if (isSel) cls += ' selected';
+        var dt = WHT.getDayType(x);
         if (rec) cls += ' has-record';
-        else if (WHT.isHoliday(x)) cls += ' is-holiday';
-        else if (WHT.isWeekend(x)) cls += ' is-rest';
-        return '<div class="' + cls + '" onclick="selectWeekDay(\'' + x + '\')" oncontextmenu="event.preventDefault();toggleHoliday(\'' + x + '\')">' +
+        else if (dt.type === 'holiday') cls += ' is-holiday';
+        else if (dt.type === 'workday') cls += ' is-compensatory';
+        else if (dt.type === 'weekend') cls += ' is-rest';
+        var xw = new Date(x + 'T00:00:00');
+        var ariaLabel = (xw.getMonth() + 1) + '月' + xw.getDate() + '日 周' + w + ' ' + dt.label + (rec ? '，已记录 ' + rec.hours.toFixed(1) + ' 小时' : '');
+        return '<div class="' + cls + '" onclick="selectWeekDay(\'' + x + '\')" oncontextmenu="event.preventDefault();toggleHoliday(\'' + x + '\')" role="button" tabindex="0" aria-label="' + ariaLabel + '">' +
           '<div class="week-day-name">' + w + '</div>' +
-          '<div class="week-day-date">' + new Date(x + 'T00:00:00').getDate() + '</div>' +
+          '<div class="week-day-date">' + xw.getDate() + '</div>' +
           '<div class="week-day-hours">' + (rec ? (rec.status === 'working' || (!rec.endTime && rec.startTime) ? '进行中' : rec.hours.toFixed(1) + 'h') : '') + '</div>' +
-          (WHT.isHoliday(x) ? '<div class="holiday-badge" title="节假日">休</div>' : '') +
+          (dt.badge ? '<div class="holiday-badge' + (dt.badge === '班' ? ' holiday-badge-work' : '') + '" title="' + dt.label + '" aria-hidden="true">' + dt.badge + '</div>' : '') +
         '</div>';
       }).join('') +
     '</div>' +
@@ -120,20 +115,20 @@
     }
     var rec = WHT.getUserRecords().find(function(x) { return x.date === d; });
     var isWorking = rec && (rec.status === 'working' || (!rec.endTime && rec.startTime));
-    var sd = WHT.getUserSettings();
-    var isMarkedHoliday = sd.holidays && sd.holidays.indexOf(d) >= 0;
+    var dt = WHT.getDayType(d);
+    var picker = WHT.dayTypePickerHtml(d);
     if (!rec) {
-      el.innerHTML = '<div class="week-detail-empty"><div class="week-detail-empty-icon">📋</div><div class="week-detail-empty-text">' + WHT.formatDate(d) + ' 无记录</div><div class="week-detail-empty-hint">点击下方「记录」标签页可添加工时</div><div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-size:13px;color:var(--text-muted)">标记节假日</span><div class="ios-toggle' + (isMarkedHoliday ? ' active' : '') + '" onclick="event.stopPropagation();toggleHoliday(\'' + d + '\')"></div></div></div>';
+      el.innerHTML = '<div class="week-detail-empty"><div class="week-detail-empty-icon">📋</div><div class="week-detail-empty-text">' + WHT.formatDate(d) + ' 无记录</div><div class="week-detail-empty-hint">点击下方「记录」标签页可添加工时</div>' + picker + '</div>';
       return;
     }
     el.innerHTML = '<div class="bento week-detail">' +
       '<div class="week-detail-row"><span class="week-detail-label">日期</span><span class="week-detail-value">' + WHT.formatDate(rec.date) + '</span></div>' +
       '<div class="week-detail-row"><span class="week-detail-label">上班</span><span class="week-detail-value">' + WHT.escapeHtml(rec.startTime) + '</span></div>' +
       '<div class="week-detail-row"><span class="week-detail-label">下班</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">等待中...</span>' : WHT.escapeHtml(rec.endTime)) + '</span></div>' +
-      '<div class="week-detail-row"><span class="week-detail-label">工时</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">进行中</span>' : rec.hours + 'h') + '</span></div>' +
-      '<div class="week-detail-row"><span class="week-detail-label">类型</span><span class="week-detail-value">' + (rec.isHoliday ? '节假日' : WHT.isWeekend(rec.date) ? '周末' : '工作日') + '</span></div>' +
+      '<div class="week-detail-row"><span class="week-detail-label">工时</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">进行中</span>' : rec.hours.toFixed(1) + 'h') + '</span></div>' +
+      '<div class="week-detail-row"><span class="week-detail-label">类型</span><span class="week-detail-value">' + dt.label + '</span></div>' +
       (rec.note ? '<div class="week-detail-row"><span class="week-detail-label">备注</span><span class="week-detail-value">' + WHT.escapeHtml(rec.note) + '</span></div>' : '') +
-      '<div class="week-detail-row" onclick="event.stopPropagation();toggleHoliday(\'' + d + '\')" style="cursor:pointer"><span class="week-detail-label">标记节假日</span><div class="ios-toggle' + (isMarkedHoliday ? ' active' : '') + '" onclick="event.stopPropagation();toggleHoliday(\'' + d + '\')"></div></div>' +
+      picker +
     '</div>';
   }
 

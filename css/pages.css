@@ -1257,6 +1257,45 @@
 [data-theme="dark"] .calendar-day.is-holiday { background: rgba(255,149,0,0.14); color: #FFB340; }
 [data-theme="dark"] .week-day.is-holiday { background: rgba(255,149,0,0.10); }
 
+/* ═══ 日期类型标记（v0.5.9）：调休补班 + 三态选择器 ═══ */
+.calendar-day.is-compensatory { background: rgba(52,199,89,0.10); color: #1E8E3E; }
+.week-day.is-compensatory { background: rgba(52,199,89,0.10); color: #1E8E3E; }
+[data-theme="dark"] .calendar-day.is-compensatory,
+[data-theme="dark"] .week-day.is-compensatory { background: rgba(52,199,89,0.16); color: #5BD97B; }
+[data-style="warm"] .calendar-day.is-compensatory,
+[data-style="warm"] .week-day.is-compensatory { background: #E6F2EA; color: #2E7D5B; }
+[data-style="warm"][data-theme="dark"] .calendar-day.is-compensatory,
+[data-style="warm"][data-theme="dark"] .week-day.is-compensatory { background: rgba(90,170,138,0.18); color: #7FD3AE; }
+
+.calendar-day-holiday-badge.is-work { background: #34C759; }
+.week-day .holiday-badge.holiday-badge-work { background: #34C759; }
+[data-style="warm"] .calendar-day-holiday-badge.is-work,
+[data-style="warm"] .week-day .holiday-badge.holiday-badge-work { background: #5AAA8A; }
+
+.badge-workday { background: rgba(52,199,89,0.14); color: #1E8E3E; }
+[data-theme="dark"] .badge-workday { background: rgba(52,199,89,0.20); color: #5BD97B; }
+[data-style="warm"] .badge-workday { background: rgba(90,170,138,0.16); color: #2E7D5B; }
+[data-style="warm"][data-theme="dark"] .badge-workday { background: rgba(90,170,138,0.22); color: #7FD3AE; }
+
+.daytype-picker {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 0.5px solid var(--border-card);
+}
+.daytype-label { font-size: 13px; color: var(--text-secondary); }
+.daytype-seg { display: inline-flex; background: var(--bg-input); border-radius: var(--radius-xs); padding: 2px; gap: 2px; }
+.daytype-opt {
+  font-size: 12px; font-weight: 500; color: var(--text-secondary);
+  padding: 5px 14px; border-radius: 8px;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.daytype-opt:active { transform: scale(0.95); }
+.daytype-opt.active { background: var(--color-accent); color: var(--text-on-accent); }
+.empty-state .daytype-picker,
+.week-detail-empty .daytype-picker {
+  justify-content: center; border-top: none; margin-top: var(--space-3); padding-top: 0;
+}
+
 /* ═══ 暖色模式 · 日历暖调覆盖 ═══ */
 [data-style="warm"] .week-day.has-record {
   background: linear-gradient(135deg, #F2ECE0, #D9CBB5);
@@ -1297,16 +1336,16 @@
 }
 
 /* ═══ 暖色模式 · 季度暖调覆盖 ═══ */
-[data-style="warm"] .quarter-chart-fill {
+[data-style="warm"] .qmonths-fill {
   background: #C8B796;
 }
-[data-style="warm"] .quarter-detail-row.current {
+[data-style="warm"] .qmonths-row.current {
   background: #F2EDE4;
 }
-[data-style="warm"][data-theme="dark"] .quarter-chart-fill {
+[data-style="warm"][data-theme="dark"] .qmonths-fill {
   background: rgba(168, 152, 128, 0.35);
 }
-[data-style="warm"][data-theme="dark"] .quarter-detail-row.current {
+[data-style="warm"][data-theme="dark"] .qmonths-row.current {
   background: rgba(168, 152, 128, 0.15);
 }
 
@@ -1414,81 +1453,6 @@
   margin-top: var(--space-3); text-align: center;
 }
 .quarter-ring-detail strong { color: var(--text-primary); font-weight: 600; }
-
-/* 月度柱状图 */
-.quarter-chart {
-  background: var(--bg-card);
-  border: 0.5px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  padding: 20px 16px;
-  margin-bottom: var(--space-4);
-  box-shadow: var(--neu-sm);
-  transition: all 0.2s ease;
-}
-.quarter-chart:hover { transform: translateY(-1px); box-shadow: var(--neu-md); }
-.quarter-chart-title {
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-  margin-bottom: var(--space-3);
-}
-.quarter-chart-row {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 12px;
-}
-.quarter-chart-label {
-  width: 40px; font-size: 13px; font-weight: 600; color: var(--text-primary);
-}
-.quarter-chart-bar {
-  flex: 1; height: 24px;
-  background: var(--bg-raised);
-  border-radius: 6px; overflow: hidden;
-}
-.quarter-chart-fill {
-  height: 100%;
-  background: var(--color-accent-light);
-  border-radius: 6px;
-  transition: width 0.6s ease;
-  min-width: 0;
-}
-.quarter-chart-fill.empty { width: 0; }
-.quarter-chart-pct {
-  width: 40px; text-align: right;
-  font-size: 13px; font-weight: 600; color: var(--text-muted);
-}
-.quarter-chart-legend {
-  display: flex; gap: 16px; margin-top: var(--space-2);
-  font-size: 11px; color: var(--text-muted);
-}
-.quarter-chart-legend-item { display: flex; align-items: center; gap: 4px; }
-.quarter-chart-legend-color {
-  width: 10px; height: 10px; border-radius: 2px;
-}
-
-/* 月份明细 */
-.quarter-detail {
-  background: var(--bg-card);
-  border: 0.5px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-bottom: var(--space-4);
-  box-shadow: var(--neu-sm);
-  transition: all 0.2s ease;
-}
-.quarter-detail:hover { transform: translateY(-1px); box-shadow: var(--neu-md); }
-.quarter-detail-title {
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-  margin-bottom: var(--space-2);
-}
-.quarter-detail-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-glass);
-}
-.quarter-detail-row:last-child { border-bottom: none; }
-.quarter-detail-row.current { background: var(--color-accent-light); margin: 0 -16px; padding: 10px 16px; border-radius: var(--radius-sm); }
-.quarter-detail-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.quarter-detail-values { font-size: 12px; color: var(--text-secondary); }
-.quarter-detail-values strong { color: var(--text-primary); font-weight: 600; }
-.quarter-detail-sep { color: var(--neutral-300); margin: 0 6px; }
 
 /* 空状态 */
 .quarter-empty {
@@ -1856,7 +1820,329 @@
 .btn-sm:active { box-shadow: var(--neu-inset); }
 .btn-sm-danger { color: var(--color-danger); background: rgba(196, 113, 106, 0.08); }
 .btn-sm-danger:hover { background: rgba(196, 113, 106, 0.14); }
+
+/* ═══ v0.6.0 视觉与可用性优化 ═══ */
+
+/* 深色模式下徽章与同色系格子背景分离 */
+[data-theme="dark"] .calendar-day-holiday-badge,
+[data-theme="dark"] .week-day .holiday-badge { box-shadow: 0 0 0 1.5px rgba(0,0,0,0.55); }
+[data-theme="dark"] .calendar-day-holiday-badge.is-work,
+[data-theme="dark"] .week-day .holiday-badge.holiday-badge-work { background: #4CD964; }
+
+/* 日历格：缩小徽章、放宽高度，缓解信息拥挤 */
+.calendar-day { min-height: 52px; padding: 5px 2px; }
+.calendar-day-holiday-badge,
+.week-day .holiday-badge {
+  width: 13px; height: 13px; line-height: 13px;
+  font-size: 8px; border-radius: 3px;
+  top: 2px; right: 2px;
+}
+.calendar-day-hours { font-size: 9px; }
+
+/* 日历底部提示 */
+.calendar-hint { font-size: 10.5px; color: var(--text-muted); text-align: center; margin-top: 10px; }
+
+/* 记录列表：降低「删除」视觉权重 */
+.btn-sm-danger { background: transparent; }
+.btn-sm-danger:hover { background: rgba(196,113,106,0.10); }
+[data-theme="dark"] .btn-sm-danger:hover { background: rgba(212,120,110,0.16); }
+
+/* 模式栏「+」按钮可见性 */
+.mode-tab-add {
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px dashed var(--color-accent-border);
+  font-size: 20px; line-height: 1;
+}
+.mode-tab-add:hover { background: var(--color-accent-subtle); }
+
+/* 已打卡状态的卡片可点击反馈 */
+.punch-btn--punched { cursor: pointer; }
+.punch-btn--punched:active { transform: scale(0.97); }
+.punch-btn-hint { font-size: 9px; color: var(--text-muted); margin-top: -4px; }
+
+/* 补录昨天快捷入口 */
+.backfill-row { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+.quick-backfill {
+  font-size: 12px; font-weight: 500;
+  color: var(--color-accent);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-subtle);
+}
+.quick-backfill:active { transform: scale(0.96); }
+
+/* 底部浮动导航不再压住内容末行 */
+.page-content { padding-bottom: calc(140px + var(--safe-bottom)); }
 .btn-sm-add {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   width: 100%; padding: var(--space-2);
 }
+
+/* ═══ v0.7.0 追赶提示（按工作日节奏） ═══
+ * 目标 / 已完成 / 剩余工作日 / 日均需求由 WHT.monthPace 统一计算，
+ * 这里只负责两种密度的呈现：月度页完整卡片 + 记录页轻量提示条。
+ * 全部使用主题变量，暖色 / 极简 × 浅色 / 深色四套自动适配。
+ */
+
+/* ── 月度页：完整追赶卡片 ── */
+.pace-card {
+  margin-bottom: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  border: 0.5px solid var(--color-accent-border);
+}
+.pace-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.pace-card-tag {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+.pace-card-main {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-3);
+}
+.pace-card-label { font-size: 13px; color: var(--text-secondary); }
+.pace-card-value {
+  font-size: 26px; font-weight: 700; line-height: 1;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent-text);
+  white-space: nowrap;
+}
+.pace-card-sub {
+  margin-top: 6px;
+  font-size: 12px; color: var(--text-secondary);
+}
+.pace-clock {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 0.5px solid var(--color-accent-border);
+  font-size: 12px; color: var(--color-accent-text);
+}
+.pace-clock strong { font-weight: 600; }
+.pace-clock-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+/* 已达标 / 工作日已用完：脱离强调色，交回中性卡片底 */
+.pace-card.is-done,
+.pace-card.is-overdue {
+  background: var(--bg-card);
+  border-color: var(--border-card);
+}
+.pace-card.is-done .pace-card-value { color: var(--color-success); }
+.pace-card.is-overdue .pace-card-value { color: var(--color-warning); }
+
+/* ── 记录页：轻量追赶提示条（点击进月度页） ── */
+.pace-hint {
+  grid-column: span 4;
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-subtle);
+  border: 0.5px solid var(--color-accent-border);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+.pace-hint:active { transform: scale(0.985); }
+.pace-hint-text { flex: 1; min-width: 0; }
+.pace-hint-main {
+  font-size: 13px; font-weight: 500;
+  color: var(--color-accent-text);
+}
+.pace-hint-value {
+  font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+.pace-hint-sub {
+  margin-top: 2px;
+  font-size: 11px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pace-hint-more {
+  flex: none;
+  font-size: 11px; color: var(--color-accent);
+}
+.pace-hint.is-done,
+.pace-hint.is-overdue {
+  background: var(--bg-card);
+  border-color: var(--border-card);
+}
+.pace-hint.is-done .pace-hint-main { color: var(--color-success); }
+.pace-hint.is-overdue .pace-hint-main { color: var(--color-warning); }
+
+/* ═══ v0.8.0 季度累计结转 + 月度明细（合并） ═══
+ * 累计卡片与 .pace-card 同一套视觉语言（强调色底 + 主题变量），四套主题自动适配。
+ */
+
+/* ── 季度累计卡片 ── */
+.qcum-card {
+  margin-bottom: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  border: 0.5px solid var(--color-accent-border);
+}
+.qcum-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.qcum-tag {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+.qcum-edit {
+  font-size: 11px; color: var(--color-accent);
+  padding: 2px 6px; margin-right: -6px;
+  border-radius: 4px; cursor: pointer;
+}
+.qcum-edit:active { background: var(--bg-glass-hover); }
+.qcum-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: var(--space-2);
+}
+.qcum-chip {
+  font-size: 11px; color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-card);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.qcum-chip strong { font-weight: 600; color: var(--text-primary); }
+.qcum-chip strong.neg { color: var(--color-danger); }
+.qcum-chip strong.pos { color: var(--color-success); }
+.qcum-main {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-3);
+}
+.qcum-label { font-size: 13px; color: var(--text-secondary); }
+.qcum-value {
+  font-size: 26px; font-weight: 700; line-height: 1;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-warning);
+  white-space: nowrap;
+}
+.qcum-horizon {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 0.5px solid var(--color-accent-border);
+  font-size: 12px;
+}
+.qcum-horizon-label { min-width: 84px; color: var(--text-secondary); }
+.qcum-horizon-value {
+  font-size: 14px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent-text);
+}
+.qcum-horizon-unit { font-size: 11px; font-weight: 400; margin-left: 1px; }
+.qcum-horizon-days { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+.qcum-clock {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: var(--space-2);
+  font-size: 11px; color: var(--color-accent-text);
+}
+.qcum-clock strong { font-weight: 600; }
+.qcum-clock-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.qcum-card.is-done,
+.qcum-card.is-overdue {
+  background: var(--bg-card);
+  border-color: var(--border-card);
+}
+.qcum-card.is-done .qcum-value { color: var(--color-success); }
+.qcum-card.is-overdue .qcum-value { color: var(--color-warning); }
+
+/* ── 月度明细（月度工时对比 + 月份明细 合并） ── */
+.qmonths {
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  box-shadow: var(--neu-sm);
+  transition: all 0.2s ease;
+}
+.qmonths-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.qmonths-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.qmonths-hint { font-size: 11px; color: var(--text-muted); }
+
+.qmonths-row {
+  padding: 9px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.qmonths-row + .qmonths-row { border-top: 0.5px solid var(--border-glass); }
+.qmonths-row:active { background: var(--color-accent-light); }
+.qmonths-row.current { background: var(--color-accent-light); }
+.qmonths-row-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 6px;
+}
+.qmonths-name {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+.qmonths-now {
+  font-size: 10px; font-weight: 500;
+  color: var(--color-accent-text);
+  background: var(--bg-card);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.qmonths-nums {
+  font-size: 12px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.qmonths-nums strong { color: var(--text-primary); font-weight: 600; }
+.qmonths-bar {
+  height: 8px;
+  background: var(--bg-raised);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.qmonths-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 4px;
+  transition: width 0.6s ease;
+  min-width: 0;
+}
+.qmonths-fill.empty { width: 0; }
+.qmonths-total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-top: var(--space-3);
+  padding: var(--space-3) 2px 0;
+  border-top: 1px solid var(--border-glass);
+}
+.qmonths-total-label {
+  font-size: 12px; font-weight: 500; color: var(--text-secondary);
+}
+
+/* ── 弹窗补充样式 ── */
+.modal-desc {
+  font-size: 12px; line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
+}
+.form-hint {
+  font-size: 11px; color: var(--text-muted);
+  margin-top: 6px;
+}
+

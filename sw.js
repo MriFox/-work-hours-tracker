@@ -1,7 +1,7 @@
 /* 工时记录 PWA - Service Worker
  * 策略: Network First (页面) + Cache First (静态资源) + 外部资源专门处理
  */
-var APP_VERSION = '3.3.1';
+var APP_VERSION = '3.7.0';
 var CACHE_NAME = 'work-hours-v' + APP_VERSION;
 var STATIC_ASSETS = [
   './',

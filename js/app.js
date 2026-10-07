@@ -74,7 +74,7 @@ function renderCurrentTab(ps){
 
   // ── 向后兼容：HTML onclick 处理器使用的函数别名 ──
   var wAlias = [
-    'haptic','genId','escapeHtml','today','isHoliday','isWeekend','getDayOfWeek','formatDate','calculateHours','getProgressClass','toggleHoliday',
+    'haptic','genId','escapeHtml','today','getDayType','isHoliday','isWeekend','getDayOfWeek','countWorkDays','setDayOverride','formatDate','calculateHours','getProgressClass','toggleHoliday',
     'loadData','saveUsers','getUserSettings','saveUserSettings','getUserRecords','saveUserRecords','getUserCompTime','saveUserCompTime','getUserModes','saveUserModes','getDefaultSettings','getDefaultModes',
     'showToast','showToastWithAction','showConfirm','closeConfirm',
     'toggleDarkMode','applyTheme','applyStyle','toggleStyle','getStyleLabel',
@@ -86,13 +86,13 @@ function renderCurrentTab(ps){
     'showEditProfile','cancelEditProfile','saveProfile',
     'selectLoginMode','handleLogin','enterApp','showUserModal','hideUserModal','switchUser','addNewUser','deleteUser','finishFlextimeWizard','selectAddMode',
     'showWizardPage','renderWizardStep','cancelWizard','wizardPrev','wizardNext','selectWizardOption',
-    'punchIn','punchOut','adjustPunchTime','applyPunchTimeAdjust','renderRecordPage','startWorkingTimer','stopWorkingTimer',
+    'punchIn','punchOut','adjustPunchTime','applyPunchTimeAdjust','onPunchCardTap','quickBackfillDay','renderRecordPage','startWorkingTimer','stopWorkingTimer',
     'toggleManualEntry','fillTimeSlotQuick','copyYesterdayQuick','deleteTodayRecord','saveRecord','calcRecordHours',
     'editRecord','deleteRecord','toggleCompList','showAddCompTime','saveCompTime','editCompTime','updateCompTime','deleteCompTime',
     'toggleNote','toggleRecordList','loadMoreRecords','autoEarnCompTime','onRecordDateChange',
     'renderWeekPage','selectWeekDay','changeWeek','goToCurrentWeek',
-    'renderMonthPage','selectMonthDay','changeMonth','goToCurrentMonth','openMonthPicker','closeMonthPicker','changePickerYear','selectPickerMonth','confirmMonthPicker',
-    'renderQuarterPage','switchQuarter','changeQuarterYear',
+    'renderMonthPage','selectMonthDay','changeMonth','goToCurrentMonth','openMonthPicker','closeMonthPicker','changePickerYear','selectPickerMonth','confirmMonthPicker','openCurrentMonthFromPace',
+    'renderQuarterPage','switchQuarter','changeQuarterYear','goToMonthFromQuarter','editQuarterCarry','saveQuarterCarry','clearQuarterCarry',
     'openDatePicker','closeDatePicker','renderDatePicker','changePickerMonth','confirmDatePicker','selectDateDay',
     'openTimePicker','closeTimePicker','renderTimePicker','confirmTimePicker','selectHour','selectMinute','selectNow',
     'openTimePicker_wizard','openTimePicker_flex','openDatePicker_flex'

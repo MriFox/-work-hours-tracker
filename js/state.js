@@ -49,7 +49,10 @@
       darkMode: false, style: 'flat', compTimeClearCycle: 'month',
       flextimeConfig: {standardStart:'10:00',standardEnd:'19:00',exchangeRate:8,startDate:WHT.today(),startIsBigWeek:true},
       quarterConfig: [{name:'Q1',months:[1,2,3]},{name:'Q2',months:[4,5,6]},{name:'Q3',months:[7,8,9]},{name:'Q4',months:[10,11,12]}],
-      holidays: []
+      // 季度期初结余：key = `${年}-${季度下标}`，正数=结余，负数=欠账；未填则自动继承上一季度
+      quarterCarry: {},
+      holidays: [],
+      dayOverrides: {}
     };
   }
 
