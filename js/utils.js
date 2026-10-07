@@ -25,15 +25,23 @@
 
   // ── 日期类型判定（全项目唯一权威入口） ──
   // 优先级：用户覆盖 > 内置法定节假日 > 旧自定义节假日 > 周末 > 默认工作日
-  // 返回 type: 'workday'(显式上班) | 'holiday'(休息) | 'weekend'(周末休息) | 'weekday'(普通工作日)
+  //
+  // 「是不是工作日」与「算不算加班费」是两个独立维度，四种组合都有意义：
+  //   weekday / workday → 计工作日，不计加班费（普通工作日、调休补班日）
+  //   weekend / rest    → 不计工作日，不计加班费（周末、公司放假但非法定节假日）
+  //   holiday           → 不计工作日，计加班费（法定节假日）
+  // getDayType 返回 type（用于渲染）与 holiday（用于加班费判定），两者不要混用。
   function getDayType(d) {
     var s = (state.currentUser && WHT.getUserSettings) ? WHT.getUserSettings() : null;
     var ov = (s && s.dayOverrides) ? s.dayOverrides[d] : null;
     if (ov === 'workday') return { type:'workday', holiday:false, forced:true, badge:'班', label:'调休上班' };
-    if (ov === 'holiday') return { type:'holiday', holiday:true,  forced:true, badge:'休', label:'自定义休息' };
+    // 休息：不计工作日，也不算加班费（对应「公司放假、但非法定节假日，只算时长」）
+    if (ov === 'rest')    return { type:'rest',    holiday:false, forced:true, badge:'休', label:'休息' };
+    // 节假日：不计工作日，但算加班费
+    if (ov === 'holiday') return { type:'holiday', holiday:true,  forced:true, badge:'休', label:'节假日' };
     var y = parseInt(d.slice(0,4));
     if (WHT.HOLIDAYS[y] && WHT.HOLIDAYS[y].indexOf(d) >= 0) return { type:'holiday', holiday:true, forced:false, badge:'休', label:'法定节假日' };
-    if (s && s.holidays && s.holidays.indexOf(d) >= 0) return { type:'holiday', holiday:true, forced:false, badge:'休', label:'自定义休息' };
+    if (s && s.holidays && s.holidays.indexOf(d) >= 0) return { type:'holiday', holiday:true, forced:false, badge:'休', label:'法定节假日' };
     if (isWeekend(d)) return { type:'weekend', holiday:false, forced:false, badge:'', label:'周末' };
     return { type:'weekday', holiday:false, forced:false, badge:'', label:'工作日' };
   }
@@ -59,6 +67,8 @@
     return (days || []).filter(function(x) {
       var t = getDayType(x);
       if (t.type === 'workday') return true;
+      // 显式休息日：即便落在周一~周五也不计工作日（不能落到下面的周末判断）
+      if (t.type === 'rest') return false;
       if (t.holiday) return false;
       var w = getDayOfWeek(x);
       if (w >= 1 && w <= 5) return true;
@@ -124,7 +134,7 @@
     return 'bad';
   }
 
-  // 显式设置某天类型：'workday'(上班) | 'holiday'(休息) | 'auto'(清除覆盖)
+  // 显式设置某天类型：'workday'(上班) | 'rest'(休息) | 'holiday'(节假日) | 'auto'(清除覆盖)
   function setDayOverride(d, type) {
     var s = WHT.getUserSettings();
     if (!s.dayOverrides) s.dayOverrides = {};
@@ -134,14 +144,15 @@
     WHT.renderCurrentTab(true);
   }
 
-  // 长按循环：自动 → 上班 → 休息 → 自动
+  // 长按循环：自动 → 上班 → 休息 → 节假日 → 自动
   function toggleHoliday(d) {
     var s = WHT.getUserSettings();
     if (!s.dayOverrides) s.dayOverrides = {};
     var cur = s.dayOverrides[d];
     var next, label;
-    if (cur === undefined) { next = 'workday'; label = '调休上班'; }
-    else if (cur === 'workday') { next = 'holiday'; label = '休息'; }
+    if (cur === undefined) { next = 'workday'; label = '上班（计工作日）'; }
+    else if (cur === 'workday') { next = 'rest'; label = '休息（不算加班费）'; }
+    else if (cur === 'rest') { next = 'holiday'; label = '节假日（算加班费）'; }
     else { next = null; label = '自动'; }
     if (next === null) delete s.dayOverrides[d]; else s.dayOverrides[d] = next;
     WHT.saveUserSettings(s);
@@ -149,14 +160,15 @@
     WHT.renderCurrentTab(true);
   }
 
-  // 三态日期类型选择器 HTML（详情卡片复用）
+  // 日期类型选择器 HTML（详情卡片复用）
   function dayTypePickerHtml(d) {
     var s = WHT.getUserSettings();
     var ov = (s.dayOverrides && s.dayOverrides[d]) || 'auto';
     var opts = [
-      { k:'auto',    t:'自动', hint:'跟随法定节假日与周末' },
-      { k:'workday', t:'上班', hint:'调休补班，计入工作日' },
-      { k:'holiday', t:'休息', hint:'自定义休息，不计入工作日' }
+      { k:'auto',    t:'自动',   hint:'跟随法定节假日与周末' },
+      { k:'workday', t:'上班',   hint:'调休补班，计入工作日' },
+      { k:'rest',    t:'休息',   hint:'不计入工作日，不算加班费' },
+      { k:'holiday', t:'节假日', hint:'不计入工作日，按加班费计算' }
     ];
     var seg = opts.map(function(o) {
       return '<button class="daytype-opt' + (ov === o.k ? ' active' : '') + '" title="' + o.hint + '"' +
@@ -175,12 +187,20 @@
   }
 
   // 表单开关语义：勾选=休息日；取消=非休息日（默认休息时显式标为上班）
+  // 注意：勾选只表示「这天不上班」，不再顺带授予加班费。
+  // 需要「这天算加班费」请到日历里选「节假日」，避免一个开关同时改两个维度。
   function setRestFlag(d, isRest) {
     var s = WHT.getUserSettings();
     if (!s.dayOverrides) s.dayOverrides = {};
-    if (isRest) s.dayOverrides[d] = 'holiday';
-    else if (baseIsRest(d)) s.dayOverrides[d] = 'workday';
-    else delete s.dayOverrides[d];
+    if (isRest) {
+      // 系统默认本就是休息（法定节假日/周末）→ 交回「自动」，保留法定节假日的加班费语义
+      if (baseIsRest(d)) delete s.dayOverrides[d];
+      else s.dayOverrides[d] = 'rest';
+    } else if (baseIsRest(d)) {
+      s.dayOverrides[d] = 'workday';
+    } else {
+      delete s.dayOverrides[d];
+    }
     WHT.saveUserSettings(s);
   }
 

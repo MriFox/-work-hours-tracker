@@ -518,8 +518,9 @@ function renderRecordPage(c) {
 function renderRecordItem(r) {
   var b = [];
   var dt = WHT.getDayType(r.date);
-  if (dt.holiday) b.push('<span class="badge badge-holiday">' + (dt.forced ? '休息' : '节假日') + '</span>');
+  if (dt.type === 'holiday') b.push('<span class="badge badge-holiday">' + (dt.forced ? '节假日' : '法定节假日') + '</span>');
   else if (dt.type === 'workday') b.push('<span class="badge badge-workday">调休上班</span>');
+  else if (dt.type === 'rest') b.push('<span class="badge badge-weekend">休息</span>');
   else if (dt.type === 'weekend') b.push('<span class="badge badge-weekend">周末</span>');
   var isWorking = r.status === 'working' || (!r.endTime && r.startTime);
   var timeDisplay = isWorking

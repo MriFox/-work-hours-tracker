@@ -1286,7 +1286,7 @@
 .daytype-seg { display: inline-flex; background: var(--bg-input); border-radius: var(--radius-xs); padding: 2px; gap: 2px; }
 .daytype-opt {
   font-size: 12px; font-weight: 500; color: var(--text-secondary);
-  padding: 5px 14px; border-radius: 8px;
+  padding: 5px 10px; border-radius: 8px;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .daytype-opt:active { transform: scale(0.95); }

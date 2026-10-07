@@ -125,6 +125,8 @@
         cls.push('is-holiday');
       } else if (dt.type === 'workday') {
         cls.push('is-compensatory');
+      } else if (dt.type === 'rest') {
+        cls.push('is-rest');
       } else if (dt.type === 'weekend') {
         cls.push(md && md.type === 'comprehensive' ? 'is-weekend' : 'is-rest');
       }
@@ -141,7 +143,7 @@
     var calHtml = '<div class="bento bento-wide calendar">' +
       '<div class="calendar-header"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>' +
       '<div class="calendar-grid">' + calCells + '</div>' +
-      '<div class="calendar-hint">点击日期可设置「上班 / 休息」</div>' +
+      '<div class="calendar-hint">点击日期可设置「上班 / 休息 / 节假日」</div>' +
     '</div>';
 
     var paceHtml = WHT.paceCardHtml(pace);

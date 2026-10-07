@@ -60,6 +60,7 @@
         if (rec) cls += ' has-record';
         else if (dt.type === 'holiday') cls += ' is-holiday';
         else if (dt.type === 'workday') cls += ' is-compensatory';
+        else if (dt.type === 'rest') cls += ' is-rest';
         else if (dt.type === 'weekend') cls += ' is-rest';
         var xw = new Date(x + 'T00:00:00');
         var ariaLabel = (xw.getMonth() + 1) + '月' + xw.getDate() + '日 周' + w + ' ' + dt.label + (rec ? '，已记录 ' + rec.hours.toFixed(1) + ' 小时' : '');
