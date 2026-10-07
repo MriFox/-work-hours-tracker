@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-style="warm">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>季度结转卡 · 4 方案对比</title>
+<link rel="stylesheet" href="../css/design-system.css">
+<link rel="stylesheet" href="quarter-card-variants.css">
+<style>
+/* 对比页专用布局：2x2 平铺，尽量少字，一眼看完 */
+body { padding: 26px 22px 60px; }
+.wrap { max-width: 1160px; }
+.cmp-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px; align-items: start;
+}
+@media (max-width: 860px) { .cmp-grid { grid-template-columns: 1fr; } }
+
+.cmp-cell { min-width: 0; }
+.cmp-label {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 9px;
+}
+.cmp-label .opt-tag { font-size: 12px; padding: 4px 10px; }
+.cmp-label-name { font-size: 15px; font-weight: 600; }
+.cmp-label-hint { font-size: 12px; color: var(--text-secondary); }
+
+.pick-note {
+  margin-top: 26px; padding: 15px 18px;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-size: 13px; line-height: 1.75; color: var(--text-secondary);
+}
+.pick-note b { color: var(--text-primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1 class="page-title">季度结转卡 · 4 方案对比</h1>
+  <p class="page-desc" style="margin-bottom:20px">
+    数据是示意图。四张卡片右下角「按 <span style="color:var(--color-accent)">09:00</span> 上班计」里的时间，都可以点击直接改。
+  </p>
+
+  <div class="switcher" style="margin-bottom:22px">
+    <button data-theme-set="warm-light" class="on">暖色 · 浅色</button>
+    <button data-theme-set="warm-dark">暖色 · 深色</button>
+    <button data-theme-set="flat-light">极简 · 浅色</button>
+    <button data-theme-set="flat-dark">极简 · 深色</button>
+  </div>
+
+  <div class="cmp-grid">
+
+    <!-- ═══ A ═══ -->
+    <div class="cmp-cell">
+      <div class="cmp-label">
+        <span class="opt-tag">A</span>
+        <span class="cmp-label-name">载荷条版</span>
+        <span class="cmp-label-hint">—— 每天得干到几点</span>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+          <span class="card-edit">设置期初结余 ›</span>
+        </div>
+        <div class="qa-hero">
+          <span class="qa-hero-num num">186.0<i>h</i></span>
+          <span class="qa-hero-label">累计仍差</span>
+        </div>
+        <div class="qa-comp">
+          <span>期初结余<b class="num neg">-42.0h</b></span>
+          <span class="qa-comp-op">+</span>
+          <span>本季度<b class="num neg">-144.0h</b></span>
+        </div>
+        <div class="qa-load is-hard">
+          <div class="qa-load-top">
+            <span class="qa-load-name">本季度内还清</span>
+            <span class="qa-load-val num">12.05<i>h / 天</i></span>
+          </div>
+          <div class="qa-track"><i style="width:75%"></i><s style="left:56%"></s></div>
+          <div class="qa-load-foot"><span>剩 61 个工作日</span><span>比日常多 3.05h</span></div>
+        </div>
+        <div class="qa-load">
+          <div class="qa-load-top">
+            <span class="qa-load-name">到年底还清</span>
+            <span class="qa-load-val num">11.19<i>h / 天</i></span>
+          </div>
+          <div class="qa-track"><i style="width:70%"></i><s style="left:56%"></s></div>
+          <div class="qa-load-foot"><span>剩 85 个工作日</span><span>比日常多 2.19h</span></div>
+        </div>
+        <div class="clock">
+          <span class="clock-dot"></span>
+          按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ B ═══ -->
+    <div class="cmp-cell">
+      <div class="cmp-label">
+        <span class="opt-tag">B</span>
+        <span class="cmp-label-name">账本版</span>
+        <span class="cmp-label-hint">—— 欠账怎么来的，列清楚</span>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+          <span class="card-edit">设置期初结余 ›</span>
+        </div>
+        <div class="qb-row"><span>期初结余</span><span class="lead"></span><b class="num neg">-42.0h</b></div>
+        <div class="qb-row"><span>本季度偏差</span><span class="lead"></span><b class="num neg">-144.0h</b></div>
+        <div class="qb-row is-total"><span>累计仍差</span><span class="lead"></span><b class="num">186.0<i>h</i></b></div>
+        <div class="qb-plans">
+          <div class="qb-plan">
+            <span>本季度内还清</span>
+            <b class="num">+3.05<i>h/天</i></b>
+            <em>剩 61 天</em>
+          </div>
+          <div class="qb-plan">
+            <span>到年底还清</span>
+            <b class="num">+2.19<i>h/天</i></b>
+            <em>剩 85 天</em>
+          </div>
+        </div>
+        <div class="clock">
+          <span class="clock-dot"></span>
+          按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ C ═══ -->
+    <div class="cmp-cell">
+      <div class="cmp-label">
+        <span class="opt-tag">C</span>
+        <span class="cmp-label-name">时间轴版</span>
+        <span class="cmp-label-hint">—— 季度末 / 年底 两条路</span>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+          <span class="card-edit">设置期初结余 ›</span>
+        </div>
+        <div class="qc-now">
+          <span class="qc-now-num num">186.0<i>h</i></span>
+          <span class="qc-now-label">累计仍差 · 期初 -42.0h + 本季度 -144.0h</span>
+        </div>
+        <div class="qc-line">
+          <div class="qc-node is-first">
+            <div class="qc-node-date">本季度末 · 剩 61 个工作日</div>
+            <div class="qc-node-main">
+              <span class="qc-node-rate num">每天额外 +3.05<i>h</i></span>
+              <span class="qc-node-note">≈ 09:00 干到 21:03</span>
+            </div>
+          </div>
+          <div class="qc-node is-last">
+            <div class="qc-node-date">年底 · 剩 85 个工作日</div>
+            <div class="qc-node-main">
+              <span class="qc-node-rate num">每天额外 +2.19<i>h</i></span>
+              <span class="qc-node-note">≈ 09:00 干到 20:11</span>
+            </div>
+          </div>
+        </div>
+        <div class="clock">
+          <span class="clock-dot"></span>
+          按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ D ═══ -->
+    <div class="cmp-cell">
+      <div class="cmp-label">
+        <span class="opt-tag">D</span>
+        <span class="cmp-label-name">极简版</span>
+        <span class="cmp-label-hint">—— 一句话说完，最省地方</span>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title"><i class="card-dot"></i>年度累计结转</span>
+          <span class="card-edit">设置期初结余 ›</span>
+        </div>
+        <div class="qd-main">累计仍差 <b class="num">186.0h</b></div>
+        <div class="qd-sub">
+          本季度内还清，每天要额外补 <b>+3.05h</b>（剩 61 天）
+          <span class="d">·</span>
+          到年底还清，每天额外补 <b>+2.19h</b>（剩 85 天）
+        </div>
+        <div class="clock">
+          <span class="clock-dot"></span>
+          按 <span class="t">09:00</span> 上班计 · 含日常 9h，到年底约 <b>20:11</b> 下班
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="pick-note">
+    <b>怎么选：</b>回复方案字母（比如「用 B」）就行。选定后我会把它落到应用里，并同步调好深色 / 暖色 / 极简四套主题。
+    想切主题看效果，点上面的按钮。
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.switcher button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.switcher button').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    var v = b.dataset.themeSet.split('-');
+    var root = document.documentElement;
+    root.setAttribute('data-style', v[0]);
+    if (v[1] === 'dark') root.setAttribute('data-theme', 'dark');
+    else root.removeAttribute('data-theme');
+  });
+});
+</script>
+</body>
+</html>
