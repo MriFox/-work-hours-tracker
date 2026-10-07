@@ -1936,12 +1936,22 @@
   background: var(--color-warning);
 }
 .qcum-edit {
-  flex: none;
+  position: relative; flex: none;
   font-size: 11px; color: var(--color-accent);
   padding: 3px 8px; margin-right: -8px;
   border-radius: var(--radius-xs);
   cursor: pointer; white-space: nowrap;
   transition: background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+/* 同 .qcum-clock-time：文字盒只有 89x23，把热区撑到 44 高 */
+.qcum-edit::after {
+  content: '';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  min-width: 44px;
+  height: 40px;
 }
 .qcum-edit:active { background: var(--bg-raised); }
 
@@ -2054,11 +2064,24 @@
 }
 /* 可点击的上班时间：虚线底告诉用户这里能改 */
 .qcum-clock-time {
+  position: relative;
   font-weight: 600; color: var(--color-accent);
   font-variant-numeric: tabular-nums;
   border-bottom: 1px dashed var(--color-accent-border);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+/* 文字本体只有 31x18，远小于 44x44 的最小可点尺寸，手指很容易点空。
+ * 用伪元素把热区撑开，视觉完全不变。 */
+.qcum-clock-time::after {
+  content: '';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  min-width: 44px;
+  height: 40px;
+}
+.qcum-clock-time:active { color: var(--color-accent-hover); }
 .qcum-clock-dot {
   flex: none; width: 5px; height: 5px; border-radius: 50%;
   background: currentColor;
