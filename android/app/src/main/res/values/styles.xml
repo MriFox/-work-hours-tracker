@@ -18,7 +18,16 @@
     </style>
 
 
+    <!-- 启动页：品牌橙底 + 居中的牛。
+         android:background 是 Android 12 以下的兜底（原来铺纯白，会闪白屏）；
+         12+ 由 core-splashscreen 的 windowSplashScreen* 接管。
+         图标用 @mipmap/ic_launcher_foreground：它整圈边缘实测正好是 #C16816，
+         与底色一致，所以看不出方框边界，视觉上就是一只牛浮在品牌橙上。
+         postSplashScreenTheme 让启动页结束后切回正常主题。 -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

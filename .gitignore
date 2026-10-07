@@ -12,3 +12,8 @@ www/
 snap*.yaml
 UX体验评估报告.html
 package-lock.json
+
+# Android 发布签名（绝不入库）
+*.jks
+*.keystore
+android/keystore.properties

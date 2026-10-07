@@ -4,7 +4,7 @@
  * 注意：静态资源走 Cache First，改完 js/css 必须同时把下面的 APP_VERSION 加一，
  * 否则老缓存会把修复藏起来（只有页面是 Network First）。
  */
-var APP_VERSION = '4.1.1';
+var APP_VERSION = '4.2.0';
 var CACHE_NAME = 'work-hours-v' + APP_VERSION;
 var STATIC_ASSETS = [
   './',
@@ -29,12 +29,16 @@ var STATIC_ASSETS = [
   './css/picker.css',
   './css/toast.css',
   './css/a11y.css',
+  './icons/icon-16x16.png',
+  './icons/icon-32x32.png',
+  './icons/icon-48x48.png',
   './icons/icon-72x72.png',
   './icons/icon-96x96.png',
   './icons/icon-128x128.png',
   './icons/icon-144x144.png',
   './icons/icon-152x152.png',
   './icons/icon-192x192.png',
+  './icons/icon-256x256.png',
   './icons/icon-384x384.png',
   './icons/icon-512x512.png',
   './icons/icon-maskable-192.png',

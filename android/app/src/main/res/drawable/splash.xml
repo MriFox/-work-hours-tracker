@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 以下的启动背景：直接铺品牌橙（原来是纯白，会闪白屏）。
+     12+ 走 SplashScreen API（见 styles.xml 的 windowSplashScreen*），底色同为品牌橙，
+     图标用 @mipmap/ic_launcher_foreground ——
+     该图整圈边缘实测正好是 #C16816，与底色完全一致，所以看不出方框边界，
+     效果就是「一只牛浮在品牌橙上」。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white"/>
+    <item android:drawable="@color/ic_launcher_background"/>
 </layer-list>
