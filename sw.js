@@ -1,7 +1,10 @@
-/* 工时记录 PWA - Service Worker
+/* 牛马计时器 PWA - Service Worker
  * 策略: Network First (页面) + Cache First (静态资源) + 外部资源专门处理
+ *
+ * 注意：静态资源走 Cache First，改完 js/css 必须同时把下面的 APP_VERSION 加一，
+ * 否则老缓存会把修复藏起来（只有页面是 Network First）。
  */
-var APP_VERSION = '3.8.0';
+var APP_VERSION = '3.9.0';
 var CACHE_NAME = 'work-hours-v' + APP_VERSION;
 var STATIC_ASSETS = [
   './',
@@ -34,7 +37,10 @@ var STATIC_ASSETS = [
   './icons/icon-192x192.png',
   './icons/icon-384x384.png',
   './icons/icon-512x512.png',
-  './icons/icon-512-maskable.png'
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png',
+  './icons/favicon.png'
 ];
 
 self.addEventListener('install', function(event) {

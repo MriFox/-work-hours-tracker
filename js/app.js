@@ -86,7 +86,7 @@ function renderCurrentTab(ps){
     'showEditProfile','cancelEditProfile','saveProfile',
     'selectLoginMode','handleLogin','enterApp','showUserModal','hideUserModal','switchUser','addNewUser','deleteUser','finishFlextimeWizard','selectAddMode',
     'showWizardPage','renderWizardStep','cancelWizard','wizardPrev','wizardNext','selectWizardOption',
-    'punchIn','punchOut','adjustPunchTime','applyPunchTimeAdjust','onPunchCardTap','quickBackfillDay','renderRecordPage','startWorkingTimer','stopWorkingTimer',
+    'punchIn','punchOut','adjustPunchTime','applyPunchTimeAdjust','onPunchCardTap','renderRecordPage','startWorkingTimer','stopWorkingTimer',
     'toggleManualEntry','fillTimeSlotQuick','copyYesterdayQuick','deleteTodayRecord','saveRecord','calcRecordHours',
     'editRecord','deleteRecord','toggleCompList','showAddCompTime','saveCompTime','editCompTime','updateCompTime','deleteCompTime',
     'toggleNote','toggleRecordList','loadMoreRecords','autoEarnCompTime','onRecordDateChange',

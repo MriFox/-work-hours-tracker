@@ -257,9 +257,13 @@
     }).length;
   }
 
-  // 常用的上班时间（用于把「每天需完成」换算成下班时间）
+  // 常用上班时间（把「每天需完成」换算成下班时间的基准）
+  // 优先级：设置里的「标准上班时间」> 常用时段首个 > 大小周上班时间 > 09:00
+  // 注意：这只是「没有真实打卡时的兜底」。记录页会优先用当天真实打卡时间，
+  // 见 monthPace 返回的 actualStart / actualEnd。
   function clockStartOf() {
     var s = WHT.getUserSettings();
+    if (s.workStartTime) return s.workStartTime;
     if (s.commonSlots && s.commonSlots.length && s.commonSlots[0].start) return s.commonSlots[0].start;
     if (s.flextimeConfig && s.flextimeConfig.standardStart) return s.flextimeConfig.standardStart;
     return '09:00';
@@ -301,6 +305,14 @@
     var clockStart = clockStartOf();
     var clockEnd = (perDay > 0 && perDay <= 16) ? addHoursToTime(clockStart, perDay) : '';
 
+    // 记录页副文案要用「今天真实的打卡时间」，而不是设置里的固定上班时间。
+    // 只在 todayCounts 为真（今天仍是待完成的工作日）时才取：
+    // 已经打完下班卡时 restDays 不含今天，perDay 描述的是「以后每个工作日」，
+    // 这时候套用今天的打卡时间会得出错误的收工点，故留空回退到 clockStart。
+    var todayRec = todayCounts ? recs.find(function(x) { return x.date === td; }) : null;
+    var actualStart = (todayRec && todayRec.startTime) ? todayRec.startTime : '';
+    var actualEnd = (actualStart && perDay > 0 && perDay <= 16) ? addHoursToTime(actualStart, perDay) : '';
+
     return {
       y: y, m: m, monthStr: ms,
       standardHours: std, modeType: mt, workDays: workDays,
@@ -308,7 +320,8 @@
       restDays: restDays, elapsedWorkDays: elapsedWorkDays,
       perDay: perDay, status: status, todayCounts: todayCounts,
       isCurrentMonth: isCurrentMonth,
-      clockStart: clockStart, clockEnd: clockEnd
+      clockStart: clockStart, clockEnd: clockEnd,
+      actualStart: actualStart, actualEnd: actualEnd
     };
   }
 
@@ -554,10 +567,14 @@
       cls = 'is-chase';
       var who = p.todayCounts ? '今天还需 ' : '每个工作日还需 ';
       main = who + '<span class="pace-hint-value">' + p.perDay.toFixed(2) + 'h</span>';
-      sub = (p.clockEnd ? p.clockStart + ' 上班 → 约 ' + p.clockEnd + ' 下班 · ' : '') +
-            '本月还差 ' + p.need.toFixed(1) + 'h';
+      // 记录页：优先用今天真实的打卡时间倒推收工点（打了卡就按打卡时间算），
+      // 没打卡 / 今天已收工（perDay 描述的是以后的工作日）时才退回设置里的常用上班时间。
+      var cStart = p.actualStart || p.clockStart;
+      var cEnd = p.actualStart ? p.actualEnd : p.clockEnd;
+      var clockTxt = cEnd ? cStart + ' 上班 → 约 ' + cEnd + ' 下班 · ' : '';
+      sub = clockTxt + '本月还差 ' + p.need.toFixed(1) + 'h';
       aria = who + p.perDay.toFixed(2) + '小时，' +
-             (p.clockEnd ? p.clockStart + '上班约 ' + p.clockEnd + ' 下班，' : '') +
+             (cEnd ? cStart + '上班约 ' + cEnd + ' 下班，' : '') +
              '本月还差 ' + p.need.toFixed(1) + '小时';
     }
     return '<div class="pace-hint ' + cls + '" onclick="openCurrentMonthFromPace()" role="button" tabindex="0" aria-label="' + aria + '">' +
@@ -619,6 +636,7 @@
   WHT.addHoursToTime = addHoursToTime;
   WHT.fmtSignedHours = fmtSignedHours;
   WHT.remainingWorkDays = remainingWorkDays;
+  WHT.clockStartOf = clockStartOf;
   WHT.monthPace = monthPace;
   WHT.quarterSummary = quarterSummary;
   WHT.quarterHasData = quarterHasData;

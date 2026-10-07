@@ -1,6 +1,6 @@
 {
   "appId": "com.workhours.tracker",
-  "appName": "工时记录",
+  "appName": "牛马计时器",
   "webDir": "www",
   "server": {
     "androidScheme": "https"

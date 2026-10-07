@@ -195,27 +195,6 @@ function onPunchCardTap(el, type) {
   adjustPunchTime(type);
 }
 
-// 快捷补录：展开手动补录并预填日期（offset=1 为昨天）
-function quickBackfillDay(offset) {
-  WHT.haptic('light');
-  var d = new Date(Date.now() - WHT.ONE_DAY_MS * offset).toISOString().slice(0,10);
-  var mc = document.getElementById('manualContent');
-  var mtb = document.getElementById('manualToggleBtn');
-  var mti = document.getElementById('manualToggleIcon');
-  if (mc && !mc.classList.contains('expanded')) {
-    mc.classList.add('expanded');
-    if (mtb) mtb.classList.add('expanded');
-    if (mti) mti.textContent = '▼';
-    st._manualExpanded = true;
-  }
-  var dateEl = document.getElementById('recordDate');
-  if (dateEl) dateEl.value = d;
-  st.formDate = d;
-  onRecordDateChange();
-  var form = document.querySelector('.record-form');
-  if (form && form.scrollIntoView) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
 // ========== 记录页渲染 ==========
 
 function renderRecordPage(c) {
@@ -377,10 +356,6 @@ function renderRecordPage(c) {
         '<span>📝 手动补录</span>' +
         '<span class="toggle-icon" id="manualToggleIcon">▶</span>' +
       '</button>' +
-      '<div class="backfill-row">' +
-        '<button class="quick-backfill" onclick="quickBackfillDay(1)">补录昨天</button>' +
-        '<button class="quick-backfill" onclick="quickBackfillDay(2)">补录前天</button>' +
-      '</div>' +
       '<div class="manual-content" id="manualContent">' +
         '<div class="bento record-form" style="margin-top:0">' +
           '<div class="form-section-title">手动录入</div>' +
@@ -823,7 +798,6 @@ function deleteCompTime(id) {
   WHT.adjustPunchTime = adjustPunchTime;
   WHT.applyPunchTimeAdjust = applyPunchTimeAdjust;
   WHT.onPunchCardTap = onPunchCardTap;
-  WHT.quickBackfillDay = quickBackfillDay;
   WHT.renderRecordPage = renderRecordPage;
   WHT.renderTimerDisplay = renderTimerDisplay;
   WHT.startWorkingTimer = startWorkingTimer;

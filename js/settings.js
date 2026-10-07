@@ -164,6 +164,19 @@ function renderSettingsPage(c) {
             '<span class="settings-label">节假日加班费</span>' +
             '<div class="settings-item-right"><input type="number" inputmode="decimal" class="input" value="' + s.holidayRate + '" onchange="updateSetting(\'holidayRate\',parseFloat(this.value))"><span class="settings-input-unit">¥/h</span></div>' +
           '</div>' +
+          // 「标准上班时间」= 把「每天还需 N 小时」换算成「约几点收工」的基准。
+          // 记录页有当天打卡记录时会用真实打卡时间，这里只影响没打卡时（及月度/季度页）的估算。
+          (function() {
+            var ws = s.workStartTime || WHT.clockStartOf();
+            return '<div class="settings-row settings-row--tap" onclick="WHT.openTimePicker(\'workStartInput\',document.getElementById(\'workStartInput\').value)">' +
+              '<div class="settings-row-left settings-row-left--stack">' +
+                '<span class="settings-label">标准上班时间</span>' +
+                '<span class="settings-sub">没打卡时用来估算下班时间</span>' +
+              '</div>' +
+              '<div class="settings-item-right"><span class="settings-value">' + h(ws) + '</span><span class="settings-chevron">›</span></div>' +
+            '</div>' +
+            '<input type="hidden" id="workStartInput" value="' + h(ws) + '" onchange="updateSetting(\'workStartTime\',this.value)">';
+          })() +
         '</div>' +
       '</div>' +
 
@@ -215,8 +228,8 @@ function renderSettingsPage(c) {
 
       // ── 关于 ──
       '<div class="settings-about">' +
-        '<div class="settings-about-name">工时记录</div>' +
-        '<div class="settings-about-version">v0.9.0</div>' +
+        '<div class="settings-about-name">牛马计时器</div>' +
+        '<div class="settings-about-version">v0.10.0</div>' +
       '</div>' +
 
     '</div>';

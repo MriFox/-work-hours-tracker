@@ -45,6 +45,9 @@
   function getDefaultSettings() {
     return {
       standardHours: 8, holidayRate: 65,
+      // 标准上班时间：把「每天需完成 N 小时」换算成「约几点下班」的基准。
+      // 记录页会优先用当天真实打卡时间覆盖它；这里只做没打卡时的兜底。
+      workStartTime: '09:00',
       commonSlots: [{start:'09:00',end:'18:00'},{start:'10:00',end:'19:00'}],
       darkMode: false, style: 'flat', compTimeClearCycle: 'month',
       flextimeConfig: {standardStart:'10:00',standardEnd:'19:00',exchangeRate:8,startDate:WHT.today(),startIsBigWeek:true},

@@ -1595,6 +1595,14 @@
   display: flex; align-items: center; justify-content: flex-end;
   gap: 6px; color: var(--text-muted); font-size: 14px; white-space: nowrap;
 }
+/* 标签 + 副文案上下堆叠的设置行（结构同普通行，只换主轴方向） */
+.settings-row-left--stack {
+  flex-direction: column; align-items: flex-start; gap: 2px;
+}
+.settings-sub {
+  font-size: 12px; line-height: 1.35; white-space: normal;
+  color: var(--text-muted);
+}
 
 /* iOS toggle switch */
 .ios-toggle {
@@ -1868,17 +1876,6 @@
 .punch-btn--punched:active { transform: scale(0.97); }
 .punch-btn-hint { font-size: 9px; color: var(--text-muted); margin-top: -4px; }
 
-/* 补录昨天快捷入口 */
-.backfill-row { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
-.quick-backfill {
-  font-size: 12px; font-weight: 500;
-  color: var(--color-accent);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent-subtle);
-}
-.quick-backfill:active { transform: scale(0.96); }
-
 /* 底部浮动导航不再压住内容末行 */
 .page-content { padding-bottom: calc(140px + var(--safe-bottom)); }
 .btn-sm-add {
@@ -1890,15 +1887,20 @@
  * 目标 / 已完成 / 剩余工作日 / 日均需求由 WHT.monthPace 统一计算，
  * 这里只负责两种密度的呈现：月度页完整卡片 + 记录页轻量提示条。
  * 全部使用主题变量，暖色 / 极简 × 浅色 / 深色四套自动适配。
+ *
+ * v0.10.0 起统一卡片语言：与 .bento / .qmonths / .today-status 一致，
+ * 采用 --bg-card + --border-card + --neu-sm + --radius-lg，
+ * 不再使用强调色底。强调色只保留在数值文本上作为语义信号。
  */
 
 /* ── 月度页：完整追赶卡片 ── */
 .pace-card {
   margin-bottom: var(--space-3);
   padding: var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-accent-subtle);
-  border: 0.5px solid var(--color-accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-card);
+  box-shadow: var(--neu-sm);
 }
 .pace-card-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -1928,31 +1930,27 @@
   display: flex; align-items: center; gap: 6px;
   margin-top: var(--space-3);
   padding-top: var(--space-3);
-  border-top: 0.5px solid var(--color-accent-border);
-  font-size: 12px; color: var(--color-accent-text);
+  border-top: 0.5px solid var(--border-card);
+  font-size: 12px; color: var(--text-secondary);
 }
-.pace-clock strong { font-weight: 600; }
+.pace-clock strong { font-weight: 600; color: var(--text-primary); }
 .pace-clock-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: currentColor; flex: none;
 }
-/* 已达标 / 工作日已用完：脱离强调色，交回中性卡片底 */
-.pace-card.is-done,
-.pace-card.is-overdue {
-  background: var(--bg-card);
-  border-color: var(--border-card);
-}
 .pace-card.is-done .pace-card-value { color: var(--color-success); }
 .pace-card.is-overdue .pace-card-value { color: var(--color-warning); }
 
-/* ── 记录页：轻量追赶提示条（点击进月度页） ── */
+/* ── 记录页：轻量追赶提示条（点击进月度页） ──
+ * 与同栅格的 .today-status 对齐：同底色、同圆角、同阴影。 */
 .pace-hint {
   grid-column: span 4;
   display: flex; align-items: center; gap: var(--space-3);
-  padding: 10px var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--color-accent-subtle);
-  border: 0.5px solid var(--color-accent-border);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-card);
+  box-shadow: var(--neu-sm);
   cursor: pointer;
   transition: transform var(--transition-fast);
 }
@@ -1976,25 +1974,22 @@
   flex: none;
   font-size: 11px; color: var(--color-accent);
 }
-.pace-hint.is-done,
-.pace-hint.is-overdue {
-  background: var(--bg-card);
-  border-color: var(--border-card);
-}
 .pace-hint.is-done .pace-hint-main { color: var(--color-success); }
 .pace-hint.is-overdue .pace-hint-main { color: var(--color-warning); }
 
 /* ═══ v0.8.0 季度累计结转 + 月度明细（合并） ═══
- * 累计卡片与 .pace-card 同一套视觉语言（强调色底 + 主题变量），四套主题自动适配。
+ * v0.10.0 起累计卡片与 .pace-card / .bento / .qmonths 同一套卡片语言：
+ * --bg-card + --border-card + --neu-sm + --radius-lg，四套主题自动适配。
  */
 
 /* ── 季度累计卡片 ── */
 .qcum-card {
   margin-bottom: var(--space-3);
   padding: var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-accent-subtle);
-  border: 0.5px solid var(--color-accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-card);
+  box-shadow: var(--neu-sm);
 }
 .qcum-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -2016,7 +2011,7 @@
 }
 .qcum-chip {
   font-size: 11px; color: var(--text-secondary);
-  background: var(--bg-card);
+  background: var(--bg-raised);
   border: 0.5px solid var(--border-card);
   border-radius: 6px;
   padding: 3px 8px;
@@ -2030,18 +2025,20 @@
   gap: var(--space-3);
 }
 .qcum-label { font-size: 13px; color: var(--text-secondary); }
+/* 默认（is-chase）与 .pace-card-value 同色，保证在浅色主题下对比度达标；
+ * 达标 / 超期由下面的状态类覆盖。 */
 .qcum-value {
   font-size: 26px; font-weight: 700; line-height: 1;
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
-  color: var(--color-warning);
+  color: var(--color-accent-text);
   white-space: nowrap;
 }
 .qcum-horizon {
   display: flex; align-items: baseline; gap: var(--space-2);
   margin-top: var(--space-3);
   padding-top: var(--space-2);
-  border-top: 0.5px solid var(--color-accent-border);
+  border-top: 0.5px solid var(--border-card);
   font-size: 12px;
 }
 .qcum-horizon-label { min-width: 84px; color: var(--text-secondary); }
@@ -2055,17 +2052,12 @@
 .qcum-clock {
   display: flex; align-items: center; gap: 6px;
   margin-top: var(--space-2);
-  font-size: 11px; color: var(--color-accent-text);
+  font-size: 11px; color: var(--text-secondary);
 }
-.qcum-clock strong { font-weight: 600; }
+.qcum-clock strong { font-weight: 600; color: var(--text-primary); }
 .qcum-clock-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: currentColor; flex: none;
-}
-.qcum-card.is-done,
-.qcum-card.is-overdue {
-  background: var(--bg-card);
-  border-color: var(--border-card);
 }
 .qcum-card.is-done .qcum-value { color: var(--color-success); }
 .qcum-card.is-overdue .qcum-value { color: var(--color-warning); }
