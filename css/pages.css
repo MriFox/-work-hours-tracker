@@ -1945,37 +1945,15 @@
 }
 .qcum-edit:active { background: var(--bg-raised); }
 
-/* ── 结转构成 ── */
-.qcum-chips {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  margin-bottom: var(--space-3);
-}
-.qcum-chip {
-  display: inline-flex; align-items: baseline; gap: 6px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  font-size: 11px; color: var(--text-muted);
-}
-.qcum-chip b {
-  font-size: 13px; font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-.qcum-chip b.neg { color: var(--color-danger); }
-.qcum-chip b.pos { color: var(--color-success); }
-
-/* ── 主数值 ── */
+/* ── 主数值：累计仍差 ── */
 .qcum-hero {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 10px;
 }
-.qcum-label { font-size: 13px; color: var(--text-secondary); }
 /* 默认（is-chase）用强调色，保证浅色主题下对比度达标；
  * 达标 / 超期由下面的状态类覆盖。 */
-.qcum-value {
-  font-size: 34px; font-weight: 700; line-height: 1;
+.qcum-hero-value {
+  font-size: 36px; font-weight: 700; line-height: 1;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   color: var(--color-accent-text);
@@ -1985,33 +1963,85 @@
   font-style: normal; font-size: 12px; font-weight: 500;
   color: var(--text-secondary); margin-left: 3px;
 }
+.qcum-hero-label { font-size: 13px; color: var(--text-secondary); }
 
-/* ── 两档「还清」目标（并排双卡）── */
-.qcum-plans { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
-.qcum-plans.is-single { grid-template-columns: 1fr; }
-.qcum-plan {
-  display: flex; flex-direction: column; gap: 4px;
-  padding: var(--space-3);
+/* ── 结转构成：期初结余 + 本季度 = 累计仍差 ── */
+.qcum-compose {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
   border-radius: var(--radius-md);
   background: var(--bg-raised);
+  font-size: 11px; color: var(--text-muted);
+  margin-bottom: var(--space-4);
 }
-.qcum-plan-name { font-size: 11px; color: var(--text-muted); }
-.qcum-plan-value {
-  font-size: 20px; font-weight: 700; line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
+.qcum-compose-item { display: inline-flex; align-items: baseline; gap: 6px; }
+.qcum-compose-item b {
+  font-size: 13px; font-weight: 700;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
-.qcum-plan-value i {
+.qcum-compose-item b.neg { color: var(--color-danger); }
+.qcum-compose-item b.pos { color: var(--color-success); }
+.qcum-compose-op { color: var(--text-disabled); }
+
+/* ── 两档「还清」载荷条 ──
+ * 条长 = 当天总工时（日常标准 + 额外要补的量），两条同刻度并列；
+ * 灰竖线是日常标准工时的位置，越过它就说明当天得加班。
+ */
+.qcum-load { margin-bottom: var(--space-3); }
+.qcum-load:last-of-type { margin-bottom: 0; }
+.qcum-load-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
+}
+.qcum-load-name { font-size: 12px; color: var(--text-secondary); }
+.qcum-load-val {
+  font-size: 15px; font-weight: 700;
+  color: var(--color-accent-text);
+  font-variant-numeric: tabular-nums;
+}
+.qcum-load.is-hard .qcum-load-val { color: var(--color-danger); }
+.qcum-load-val i {
   font-style: normal; font-size: 10px; font-weight: 500;
   color: var(--text-muted); margin-left: 2px;
 }
-.qcum-plan-days { font-size: 11px; color: var(--text-secondary); }
-/* 只有一档时（Q4 这类季度末=年末）走横向一行，避免整块留白显得空 */
-.qcum-plans.is-single .qcum-plan {
-  flex-direction: row; align-items: baseline; gap: var(--space-3);
+.qcum-load-track {
+  position: relative; height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-raised);
+  overflow: hidden;
 }
-.qcum-plans.is-single .qcum-plan-value { margin-left: auto; }
+.qcum-load-fill {
+  display: block; height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width 0.4s ease;
+}
+.qcum-load.is-hard .qcum-load-fill { background: var(--color-danger); }
+/* 日常标准工时的参考线 */
+.qcum-load-mark {
+  position: absolute; top: -2px; bottom: -2px; width: 2px;
+  background: var(--text-disabled);
+  border-radius: 1px;
+}
+.qcum-load-foot {
+  display: flex; justify-content: space-between;
+  margin-top: 5px;
+  font-size: 10px; color: var(--text-muted);
+}
+
+/* 非追赶状态的完成度补充行 */
+.qcum-note {
+  margin-top: var(--space-3);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-size: 12px; color: var(--text-secondary);
+}
+.qcum-note b {
+  font-weight: 700; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
 
 .qcum-clock {
   display: flex; align-items: center; gap: 6px;
@@ -2036,9 +2066,9 @@
 
 /* ── 状态色 ── */
 .qcum-card.is-done .qcum-dot { background: var(--color-success); }
-.qcum-card.is-done .qcum-value { color: var(--color-success); }
+.qcum-card.is-done .qcum-hero-value { color: var(--color-success); }
 .qcum-card.is-overdue .qcum-dot { background: var(--color-danger); }
-.qcum-card.is-overdue .qcum-value { color: var(--color-danger); }
+.qcum-card.is-overdue .qcum-hero-value { color: var(--color-danger); }
 
 /* ── 月度明细（月度工时对比 + 月份明细 合并） ── */
 .qmonths {

@@ -228,7 +228,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">牛马计时器</div>' +
-        '<div class="settings-about-version">v0.11.0</div>' +
+        '<div class="settings-about-version">v0.12.0</div>' +
       '</div>' +
 
     '</div>';

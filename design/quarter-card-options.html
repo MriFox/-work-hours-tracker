@@ -6,6 +6,23 @@
 <title>季度累计结转卡片 · 设计方案</title>
 <link rel="stylesheet" href="../css/design-system.css">
 <link rel="stylesheet" href="quarter-card-variants.css">
+<style>
+/* 已采用标记 */
+.cmp-adopted {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-left: 2px; padding: 2px 9px;
+  border-radius: var(--radius-full);
+  background: var(--color-success); color: var(--text-on-accent);
+  font-size: 10px; font-weight: 700; letter-spacing: .02em;
+}
+.adopted-bar {
+  margin: 0 0 20px; padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-size: 13px; line-height: 1.7; color: var(--text-secondary);
+}
+.adopted-bar b { color: var(--color-success); }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -17,6 +34,10 @@
     <b>四个方案都做成了可点击直接修改</b>。
   </p>
 
+  <div class="adopted-bar">
+    <b>本页是设计存档。</b>四个方案中最终采用了 <b>方案 A（载荷条版）</b>，v0.12.0 起已在应用里上线。
+  </div>
+
   <div class="switcher">
     <button data-theme-set="warm-light" class="on">暖色 · 浅色</button>
     <button data-theme-set="warm-dark">暖色 · 深色</button>
@@ -26,7 +47,7 @@
 
   <!-- ═══ 方案 A ═══ -->
   <div class="opt">
-    <div class="opt-head"><span class="opt-tag">方案 A</span><span class="opt-name">载荷条版</span></div>
+    <div class="opt-head"><span class="opt-tag">方案 A</span><span class="opt-name">载荷条版</span><span class="cmp-adopted">已采用</span></div>
     <p class="opt-desc">
       把「欠多少」换算成「每天得干到多少小时」，两条横条<b>按 16 小时刻度并列</b>，
       灰色竖线标出正常 9h 工时。一眼看出：想在本季度内还清，每天要顶到 12 小时。

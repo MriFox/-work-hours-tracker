@@ -457,11 +457,20 @@
     };
   }
 
-  // 季度累计卡片（季度页）
-  // 版式：标题行 → 结转构成 chips → 主数值 hero → 两档「还清」目标 → 收工时间
+  // 季度累计卡片（季度页）· 方案 A「载荷条」
+  // 版式：标题行 → 累计仍差（大数值）→ 结转构成 → 两档「还清」载荷条 → 收工时间
+  //
+  // 载荷条是这张卡的核心：把「还差多少小时」换算成「每天得干到多少小时」，
+  // 两条按同一刻度并列，再用一根灰线标出日常标准工时的位置——
+  // 一眼就能看出「想在本季度内还清」比「拖到年底」要狠多少。
   function quarterCardHtml(p) {
     if (!p || !p.isCurrentYear) return '';
     var s = WHT.getUserSettings();
+    var stdH = s.standardHours || 8;
+    // 载荷条刻度：以 16h 为基准（超过就说明完全不现实），但不封顶，
+    // 否则欠账特别多时两条都会顶到 100%，反而看不出差别。
+    var BAR_BASE = 16;
+
     var cls, label, num, unit;
     if (p.status === 'done') {
       cls = 'is-done';
@@ -480,33 +489,52 @@
       unit = 'h';
     }
 
-    // 两档「还清」目标：并排双卡，两档数值一样时只留一档
-    var plans = '';
+    // ── 两档「还清」载荷条 ──
+    // perQuarter / perYear 是「额外要补的量」，当天总工时 = 日常标准工时 + 额外量。
+    var loads = '';
     if (p.status === 'chase') {
       var items = [];
       if (p.perQuarter > 0) {
-        items.push({ name: '本季度内还清', per: p.perQuarter, days: p.restQuarter });
+        items.push({ name: '本季度内还清', per: p.perQuarter, days: p.restQuarter, tight: true });
       }
       if (p.perYear > 0 && p.restYear !== p.restQuarter) {
-        items.push({ name: '到年底还清', per: p.perYear, days: p.restYear });
+        items.push({ name: '到年底还清', per: p.perYear, days: p.restYear, tight: false });
       }
       if (items.length) {
-        plans = '<div class="qcum-plans' + (items.length === 1 ? ' is-single' : '') + '">' +
-          items.map(function(x) {
-            return '<div class="qcum-plan">' +
-                '<span class="qcum-plan-name">' + x.name + '</span>' +
-                // 前面留「+」：这两档是「额外要补的量」，不是当天总工时（当天还要上满日常标准工时）
-                '<span class="qcum-plan-value">+' + x.per.toFixed(2) + '<i>h/天</i></span>' +
-                '<span class="qcum-plan-days">剩 ' + x.days + ' 天</span>' +
-              '</div>';
-          }).join('') +
-        '</div>';
+        var totals = items.map(function(x) { return stdH + x.per; });
+        var scale = Math.max(BAR_BASE, Math.max.apply(null, totals));
+        var markPct = Math.min(100, stdH / scale * 100);
+        loads = items.map(function(x, i) {
+          var total = totals[i];
+          var pct = Math.min(100, total / scale * 100);
+          // 只有一档时按「是否明显超过日常」上色；两档时更紧的那条走红色
+          var hard = items.length > 1 ? x.tight : (total > stdH * 1.2);
+          return '<div class="qcum-load' + (hard ? ' is-hard' : '') + '">' +
+              '<div class="qcum-load-top">' +
+                '<span class="qcum-load-name">' + x.name + '</span>' +
+                '<span class="qcum-load-val">' + total.toFixed(2) + '<i>h / 天</i></span>' +
+              '</div>' +
+              '<div class="qcum-load-track" role="img" aria-label="' +
+                escapeHtml(x.name + '每天 ' + total.toFixed(2) + ' 小时，日常标准 ' + stdH + ' 小时') + '">' +
+                '<i class="qcum-load-fill" style="width:' + pct.toFixed(1) + '%"></i>' +
+                '<s class="qcum-load-mark" style="left:' + markPct.toFixed(1) + '%"></s>' +
+              '</div>' +
+              '<div class="qcum-load-foot">' +
+                '<span>剩 ' + x.days + ' 个工作日</span>' +
+                '<span>比日常多 ' + x.per.toFixed(2) + 'h</span>' +
+              '</div>' +
+            '</div>';
+        }).join('');
       }
     }
 
+    // 非追赶状态没得算「每天要多少」，用一行完成度补足信息
+    var note = (p.status !== 'chase')
+      ? '<div class="qcum-note">今年已完成 <b>' + p.actual.toFixed(1) + 'h</b> / 目标 <b>' + p.target + 'h</b></div>'
+      : '';
+
     // 收工时间行。「按 X 上班计」里的 X 可以直接点开改（与设置页共用 editWorkStartTime）。
     // 即便不换算下班点（总工时 > 16h），这一行也保留，保证卡片上始终能改上班时间。
-    var stdH = s.standardHours || 8;
     var clock = (p.status === 'chase')
       ? '<div class="qcum-clock">' +
           '<span class="qcum-clock-dot" aria-hidden="true"></span>' +
@@ -521,15 +549,17 @@
         '<span class="qcum-title"><span class="qcum-dot" aria-hidden="true"></span>年度累计结转</span>' +
         '<span class="qcum-edit" role="button" tabindex="0">设置期初结余 ›</span>' +
       '</div>' +
-      '<div class="qcum-chips">' +
-        '<span class="qcum-chip"><i>期初结余</i><b class="' + (p.carry < 0 ? 'neg' : p.carry > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.carry) + '</b></span>' +
-        '<span class="qcum-chip"><i>本季度</i><b class="' + (p.dev < 0 ? 'neg' : p.dev > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.dev) + '</b></span>' +
-      '</div>' +
       '<div class="qcum-hero">' +
-        '<span class="qcum-label">' + label + '</span>' +
-        '<span class="qcum-value">' + num + '<i class="qcum-unit">' + unit + '</i></span>' +
+        '<span class="qcum-hero-value">' + num + '<i class="qcum-unit">' + unit + '</i></span>' +
+        '<span class="qcum-hero-label">' + label + '</span>' +
       '</div>' +
-      plans +
+      '<div class="qcum-compose">' +
+        '<span class="qcum-compose-item">期初结余<b class="' + (p.carry < 0 ? 'neg' : p.carry > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.carry) + '</b></span>' +
+        '<span class="qcum-compose-op" aria-hidden="true">+</span>' +
+        '<span class="qcum-compose-item">本季度<b class="' + (p.dev < 0 ? 'neg' : p.dev > 0 ? 'pos' : '') + '">' + fmtSignedHours(p.dev) + '</b></span>' +
+      '</div>' +
+      loads +
+      note +
       clock +
     '</div>';
   }
