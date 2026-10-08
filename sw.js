@@ -8,7 +8,7 @@
  * 图片/字体走 Cache First，不 bump 就永远吃旧图；js/css 虽是 Network First，
  * 但首次离线前的那份缓存也要靠它换新。改静态资源就顺手加一，成本极低。
  */
-var APP_VERSION = '4.6.0';
+var APP_VERSION = '4.6.1';
 var CACHE_NAME = 'work-hours-v' + APP_VERSION;
 var STATIC_ASSETS = [
   './',

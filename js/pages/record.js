@@ -433,7 +433,7 @@ function renderRecordSection(allRecords) {
 
   var body = (view === 'chart')
     ? renderRecordChart(allRecords)
-    : '<div class="rt-wrap">' + renderRecordTable(allRecords.slice(0, limit)) + '</div>';
+    : '<div class="rt-wrap">' + renderRecordTable(allRecords.slice(0, limit), allRecords) + '</div>';
 
   var foot = (view === 'table' && hasMore)
     ? '<div class="record-load-more" onclick="loadMoreRecords()">加载更多...</div>'
@@ -443,15 +443,33 @@ function renderRecordSection(allRecords) {
 }
 
 // ── 表格：按月分组，行高 32px，操作收进 ⋯ ──
-function renderRecordTable(recs) {
+// recs = 本页要显示的那些（被「最近 N 条」截断）；allRecords = 全部记录。
+// 两个参数是必需的：月份合计必须按**该月全部记录**算 ——
+// 早期版本只累加显示出来的那几条，被 limit 截断时标题会写一个偏小的假合计
+// （实测：9 月实际 10 条 80.0h，界面上却写「合计 56.0h」，只算了挤进前 10 的 7 条）。
+function renderRecordTable(recs, allRecords) {
   if (!recs.length) return '';
-  var out = '', curKey = '', curLabel = '', sum = 0, buf = [];
+
+  var monthTotal = {}, monthCount = {};
+  (allRecords || recs).forEach(function(r) {
+    if (WHT.isOpenRecord(r)) return;              // 进行中的不计入合计
+    var k = r.date.slice(0, 7);
+    monthTotal[k] = (monthTotal[k] || 0) + r.hours;
+    monthCount[k] = (monthCount[k] || 0) + 1;
+  });
+
+  var out = '', curKey = '', curLabel = '', shown = 0, buf = [];
 
   function flush() {
     if (!buf.length) return;
-    out += '<div class="rt-month"><span>' + curLabel + '</span><b>合计 ' + sum.toFixed(1) + 'h</b></div>' +
+    var total = monthTotal[curKey] || 0;
+    var all = monthCount[curKey] || 0;
+    // 本页被截断时把「本页」也写出来，避免用户把行加起来对不上标题
+    var part = (shown < all) ? ' · 本页 ' + shown + '/' + all + ' 条' : '';
+    out += '<div class="rt-month"><span>' + curLabel + '</span>' +
+           '<b>合计 ' + total.toFixed(1) + 'h' + part + '</b></div>' +
            '<div class="rt-rows">' + buf.join('') + '</div>';
-    buf = []; sum = 0;
+    buf = []; shown = 0;
   }
 
   recs.forEach(function(r) {
@@ -461,8 +479,7 @@ function renderRecordTable(recs) {
       curKey = key;
       curLabel = key.slice(0, 4) + '年' + parseInt(key.slice(5), 10) + '月';
     }
-    // 合计按记录原始工时累加（含节假日上班时长）—— 表格是明细视图，直观优先
-    if (!WHT.isOpenRecord(r)) sum += r.hours;
+    if (!WHT.isOpenRecord(r)) shown++;
     buf.push(rtRow(r));
   });
   flush();
@@ -487,14 +504,22 @@ function rtRow(r) {
     if (r.hours > (WHT.getUserSettings().standardHours || 8)) cls = 'is-over';
   }
 
-  var wd = ['日','一','二','三','四','五','六'][new Date(r.date + 'T00:00:00').getDay()];
+  var wdArr = ['日','一','二','三','四','五','六'];
+  var dObj = new Date(r.date + 'T00:00:00');
+  // 日期来自记录，理论上可被导入的异常数据污染 → 转义后再显示；
+  // 无效日期会算出 NaN，此时不显示星期，避免出现「undefined」
+  var wd = isNaN(dObj.getTime()) ? '' : wdArr[dObj.getDay()];
+  var dateTxt = WHT.escapeHtml(String(r.date).slice(5)) + (wd ? ' ' + wd : '');
+
   var id = WHT.escapeHtml(r.id);
   var aria = WHT.escapeHtml(r.date + ' ' + (dt.label || '') + ' ' + txt);
 
   return '<div class="rt-row" role="button" tabindex="0" aria-label="' + aria + '" ' +
-      'onclick="openRecordDetail(\'' + id + '\')">' +
+      'onclick="openRecordDetail(\'' + id + '\')" ' +
+      // 键盘可达：role=button + tabindex 只让它可聚焦，不按 Enter 是不会响应的
+      'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openRecordDetail(\'' + id + '\')}">' +
       '<i class="rt-bar ' + bar + '" aria-hidden="true"></i>' +
-      '<span class="rt-date">' + r.date.slice(5) + ' ' + wd + '</span>' +
+      '<span class="rt-date">' + dateTxt + '</span>' +
       '<span class="rt-time">' + (r.startTime ? WHT.escapeHtml(r.startTime) : '—') + '</span>' +
       '<span class="rt-time">' + (open ? '—' : (r.endTime ? WHT.escapeHtml(r.endTime) : '—')) + '</span>' +
       '<span class="rt-hours ' + cls + '">' + txt + '</span>' +
@@ -535,7 +560,10 @@ function renderRecordChart(allRecords) {
   var vals = [];
   days.forEach(function(x) { if (x.v !== null) vals.push(x.v); });
   if (!vals.length) {
-    return '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天还没有记录</div>';
+    // 有记录但都不在 30 天窗口内时，卡片标题写着「最近记录 (N条)」而这里说「还没有记录」，
+    // 两句放一起会自相矛盾 → 点明原因并指路
+    return '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天没有记录' +
+           (allRecords.length ? '<br><span>更早的记录请切回「表格」查看</span>' : '') + '</div>';
   }
 
   var top = Math.max(std, Math.max.apply(null, vals));
@@ -637,10 +665,15 @@ function openRecordDetail(id) {
 
   function row(k, v) { return '<div class="rs-row"><span>' + k + '</span><b>' + v + '</b></div>'; }
 
+  // WHT.formatDate 对无效日期会输出「NaN月NaN日 周undefined」（导入损坏数据时可能遇到），
+  // 这里兜一层：解析不出来就原样显示日期串，不要甩一堆 NaN 给用户。
+  var dObj = new Date(rec.date + 'T00:00:00');
+  var title = isNaN(dObj.getTime()) ? WHT.escapeHtml(String(rec.date)) : WHT.formatDate(rec.date);
+
   var sheet = document.getElementById('recordSheetBody');
   if (!sheet) return;
   sheet.innerHTML = '<div class="modal-handle"></div>' +
-    '<div class="modal-title">' + WHT.formatDate(rec.date) + '</div>' +
+    '<div class="modal-title">' + title + '</div>' +
     '<div class="rs-box">' +
       row('日期类型', dt.label || '') +
       row('上班', rec.startTime ? WHT.escapeHtml(rec.startTime) : '—') +
@@ -657,7 +690,9 @@ function openRecordMenu(id) {
   if (!rec) return;
   WHT.haptic('light');
   var open = WHT.isOpenRecord(rec);
-  var title = WHT.formatDate(rec.date) +
+  var dObj2 = new Date(rec.date + 'T00:00:00');
+  var dateTxt2 = isNaN(dObj2.getTime()) ? WHT.escapeHtml(String(rec.date)) : WHT.formatDate(rec.date);
+  var title = dateTxt2 +
     (rec.startTime ? ' · ' + WHT.escapeHtml(rec.startTime) +
       (open ? ' 起' : (rec.endTime ? ' - ' + WHT.escapeHtml(rec.endTime) : '')) : '');
 
