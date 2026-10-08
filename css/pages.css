@@ -1769,6 +1769,42 @@
 }
 .settings-input-unit { font-size: 15px; color: var(--text-muted); margin-left: 4px; }
 
+/* ── 设置页右侧控件统一框（打卡参数 / 大小周配置） ──
+ * 原问题：「单位」放在框外，而 h(8.9px) / ¥/h(22.5px) / h/次 宽度各不相同，
+ * 会把各行的输入框推到不同位置（实测右边界 367.1 / 353.5），
+ * 而下拉框又是独立的 92px、右边界 386.0 —— 三个框都不齐。
+ * 方案：单位移进框内、占固定槽位，所有控件统一 96px，右边界落在同一条竖线上；
+ * 数字右对齐且单位槽位等宽，各行数字的右边界也就对齐了。
+ * 只作用于包了 .settings-field 的行 —— 用户名那种「输入框 + 保存按钮」的行不受影响。 */
+.settings-field {
+  display: flex; align-items: center; justify-content: flex-end;
+  flex: 0 0 auto;
+  width: 96px; height: 32px;
+  padding: 0 8px; box-sizing: border-box;
+  background: var(--bg-input); border-radius: 8px;
+}
+.settings-field .input,
+.settings-field select.input {
+  flex: 1 1 auto; width: auto; min-width: 0; height: 100%;
+  padding: 0; border: none; border-radius: 0; background: transparent;
+  box-shadow: none; font-size: 15px; text-align: right;
+}
+.settings-field select.input { text-align: center; }
+/* 单位固定 28px 槽位（要容纳 h / ¥/h / h/次 三种最长），
+ * 单位长短不再影响布局 —— 这是各行数字能对齐的关键。 */
+.settings-field .settings-input-unit {
+  flex: 0 0 auto; width: 28px; margin-left: 0;
+  font-size: 13px; text-align: left; line-height: 1;
+  color: var(--text-muted);
+}
+/* 数字框的上下箭头 hover 时会挤走数字、破坏对齐；移动端本就不显示，直接隐藏 */
+.settings-field input[type="number"]::-webkit-inner-spin-button,
+.settings-field input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+/* 聚焦时高亮整个框（内层 input 已去阴影，不叠加） */
+.settings-field:focus-within { box-shadow: 0 0 0 3px var(--color-accent-glow); }
+
 /* Small buttons inside rows */
 .settings-row-actions {
   display: flex; gap: 6px;

@@ -68,7 +68,7 @@ function renderSettingsPage(c) {
       '<div class="settings-card">' +
         '<div class="settings-input-row">' +
           '<span class="settings-label">兑换比例</span>' +
-          '<div class="settings-item-right"><input type="number" inputmode="decimal" class="input" value="' + (fc.exchangeRate || 8) + '" onchange="updateFlextimeSetting(\'exchangeRate\',parseFloat(this.value))"><span class="settings-input-unit">h/次</span></div>' +
+          '<div class="settings-item-right"><span class="settings-field"><input type="number" inputmode="decimal" class="input" value="' + (fc.exchangeRate || 8) + '" onchange="updateFlextimeSetting(\'exchangeRate\',parseFloat(this.value))"><span class="settings-input-unit">h/次</span></span></div>' +
         '</div>' +
         '<div class="settings-row settings-row--tap" onclick="openTimePicker_flex(\'standardStart\',\'' + h(fc.standardStart || '') + '\')">' +
           '<div class="settings-row-left"><span class="settings-label">上班时间</span></div>' +
@@ -84,7 +84,7 @@ function renderSettingsPage(c) {
         '</div>' +
         '<div class="settings-row settings-row--tap" onclick="var sel=this.querySelector(\'select\');if(sel)sel.focus()">' +
           '<div class="settings-row-left"><span class="settings-label">起始为</span></div>' +
-          '<div class="settings-item-right"><select class="input" style="width:80px;height:32px;font-size:15px;text-align:center;padding:0 4px;background:var(--bg-input);border-radius:8px;border:none" onchange="updateFlextimeSetting(\'startIsBigWeek\',this.value===\'\\u5927\\u5468\')"><option ' + (fc.startIsBigWeek ? 'selected' : '') + '>大周</option><option ' + (!fc.startIsBigWeek ? 'selected' : '') + '>小周</option></select></div>' +
+          '<div class="settings-item-right"><span class="settings-field"><select class="input" onchange="updateFlextimeSetting(\'startIsBigWeek\',this.value===\'\\u5927\\u5468\')"><option ' + (fc.startIsBigWeek ? 'selected' : '') + '>大周</option><option ' + (!fc.startIsBigWeek ? 'selected' : '') + '>小周</option></select></span></div>' +
         '</div>' +
       '</div>' +
     '</div>' : '';
@@ -158,11 +158,11 @@ function renderSettingsPage(c) {
         '<div class="settings-card">' +
           '<div class="settings-input-row">' +
             '<span class="settings-label">每日标准工时</span>' +
-            '<div class="settings-item-right"><input type="number" inputmode="decimal" class="input" value="' + s.standardHours + '" onchange="updateSetting(\'standardHours\',parseFloat(this.value))"><span class="settings-input-unit">h</span></div>' +
+            '<div class="settings-item-right"><span class="settings-field"><input type="number" inputmode="decimal" class="input" value="' + s.standardHours + '" onchange="updateSetting(\'standardHours\',parseFloat(this.value))"><span class="settings-input-unit">h</span></span></div>' +
           '</div>' +
           '<div class="settings-input-row">' +
             '<span class="settings-label">节假日加班费</span>' +
-            '<div class="settings-item-right"><input type="number" inputmode="decimal" class="input" value="' + s.holidayRate + '" onchange="updateSetting(\'holidayRate\',parseFloat(this.value))"><span class="settings-input-unit">¥/h</span></div>' +
+            '<div class="settings-item-right"><span class="settings-field"><input type="number" inputmode="decimal" class="input" value="' + s.holidayRate + '" onchange="updateSetting(\'holidayRate\',parseFloat(this.value))"><span class="settings-input-unit">¥/h</span></span></div>' +
           '</div>' +
           // 「标准上班时间」= 把「每天还需 N 小时」换算成「约几点收工」的基准。
           // 记录页有当天打卡记录时会用真实打卡时间，这里只影响没打卡时（及月度/季度页）的估算。
@@ -190,10 +190,9 @@ function renderSettingsPage(c) {
                 '<span class="settings-label">跨天工时归属</span>' +
                 '<span class="settings-sub">次日几点前下班仍算前一天</span>' +
               '</div>' +
-              '<div class="settings-item-right">' +
-                '<select class="input" style="width:92px;height:32px;font-size:15px;text-align:center;padding:0 4px;background:var(--bg-input);border-radius:8px;border:none" ' +
-                  'onchange="updateSetting(\'dayCutoffHour\',parseFloat(this.value))">' + opts + '</select>' +
-              '</div>' +
+              '<div class="settings-item-right"><span class="settings-field">' +
+                '<select class="input" onchange="updateSetting(\'dayCutoffHour\',parseFloat(this.value))">' + opts + '</select>' +
+              '</span></div>' +
             '</div>';
           })() +
         '</div>' +
@@ -248,7 +247,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">牛马计时器</div>' +
-        '<div class="settings-about-version">v0.14.0</div>' +
+        '<div class="settings-about-version">v0.14.1</div>' +
       '</div>' +
 
     '</div>';
