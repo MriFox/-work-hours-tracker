@@ -227,11 +227,37 @@
 <!-- PWA Service Worker Registration -->
 <script>
 if ('serviceWorker' in navigator) {
+  // 同一会话只自动刷新一次，避免「新 SW 接管 → reload → 又接管 → reload」死循环
+  function reloadOnce() {
+    if (sessionStorage.getItem('sw-reloaded')) return;
+    sessionStorage.setItem('sw-reloaded', '1');
+    location.reload();
+  }
+
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('sw.js').then(function(reg) {
-      console.log('SW registered: ', reg.scope);
+      // 主动查一次更新。浏览器默认只在导航时检查 sw.js，
+      // 单页应用长时间开着新版本可能一直不被发现。
+      try { reg.update(); } catch (e) {}
+
+      reg.addEventListener('updatefound', function() {
+        var sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener('statechange', function() {
+          // controller 非空 = 已有 SW 在管，本次属于「更新」而不是首次安装
+          if (sw.state === 'activated' && navigator.serviceWorker.controller) reloadOnce();
+        });
+      });
     }).catch(function(err) {
       console.log('SW failed: ', err);
+    });
+
+    // 新 SW 接管页面时也会触发这里（sw.js 里调了 clients.claim）
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (refreshing) return;
+      refreshing = true;
+      if (navigator.serviceWorker.controller) reloadOnce();
     });
   });
 }

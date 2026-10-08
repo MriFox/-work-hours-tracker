@@ -1,10 +1,14 @@
 /* 牛马计时器 PWA - Service Worker
- * 策略: Network First (页面) + Cache First (静态资源) + 外部资源专门处理
+ * 策略：
+ *   · 页面/文档、js、css  → Network First（拿不到网络才回退缓存）
+ *   · 图片、字体          → Cache First（命中即用，后台静默更新）
+ *   · 跨域资源（Google Fonts 等）→ Cache First + 后台更新
  *
- * 注意：静态资源走 Cache First，改完 js/css 必须同时把下面的 APP_VERSION 加一，
- * 否则老缓存会把修复藏起来（只有页面是 Network First）。
+ * APP_VERSION bump 的作用：CACHE_NAME 由它拼成，activate 时会删掉所有旧缓存。
+ * 图片/字体走 Cache First，不 bump 就永远吃旧图；js/css 虽是 Network First，
+ * 但首次离线前的那份缓存也要靠它换新。改静态资源就顺手加一，成本极低。
  */
-var APP_VERSION = '4.5.0';
+var APP_VERSION = '4.5.1';
 var CACHE_NAME = 'work-hours-v' + APP_VERSION;
 var STATIC_ASSETS = [
   './',
