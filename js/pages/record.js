@@ -416,7 +416,10 @@ function renderRecordPage(c) {
 //
 // 图表窗口刻意取「最近 30 个自然日」，与表格的「最近 N 条」不一致：
 // 表格是查某天的明细（10 条够用），图表是看走向（点越多趋势越准），职责本就不同。
-var CHART_DAYS = 30;
+// 图表时间窗口的可选档位（天）。双指张开 = 放大（档位变小、看清每天），
+// 双指捏合 = 缩小（档位变大、看更长的趋势）。
+var CHART_SPANS = [7, 14, 30, 60, 90];
+var CHART_SPAN_DEFAULT = 30;
 // 表格折叠时显示的行数。3 条 = 最近三天，一屏就能看完，
 // 不会把下面的「调休管理」挤到很远。
 var COLLAPSED_ROWS = 3;
@@ -561,14 +564,17 @@ function renderRecordChart(allRecords) {
   var byDate = {};
   allRecords.forEach(function(r) { byDate[r.date] = r; });
 
-  // 窗口偏移：0 = 最近一期（最靠右），1 = 往前一期，以此类推。
-  // 一期 = CHART_DAYS 天，正好一屏，翻页时整屏替换、不会出现半截。
-  // 读取必须走 currentChartShift()：内存态在 reload 后会丢，要能回退到设置。
-  var shift = currentChartShift();
+  // 时间窗口由「档位天数 span」+「右端偏移 endOff」两个量决定：
+  //   窗口 = [今天-(span-1)-endOff, 今天-endOff]
+  // 之所以不用「翻了几期」来记位置，是因为档位会变 —— 用期数记的话，
+  // 从 30 天缩到 7 天时同一个期数会指向完全不同的日期。
+  // 改用「右端偏移」后，**缩放时右端固定不动**，用户关注的时间段自然保持住。
+  var span = currentChartSpan();
+  var endOff = currentChartEnd();
   var days = [];
-  for (var i = CHART_DAYS - 1; i >= 0; i--) {
+  for (var i = span - 1; i >= 0; i--) {
     var d = new Date();
-    d.setDate(d.getDate() - i - shift * CHART_DAYS);
+    d.setDate(d.getDate() - i - endOff);
     var ds = WHT.localDateStr(d);
     var rec = byDate[ds] || null;
     var v = null;
@@ -593,7 +599,7 @@ function renderRecordChart(allRecords) {
     //   只能点「回到最近一期」。顺带 touch-action: pan-y 也只作用在 .rc-wrap 上。
     //   结构保持一致后，空期也能继续滑动翻回去。
     var inner;
-    if (shift > 0) {
+    if (endOff > 0) {
       inner = chartNavHtml(rangeTxt, false) +
         '<div class="rc-empty">' + rangeTxt + '<br><span>这段时间没有记录</span></div>' +
         '<div class="rc-back" role="button" tabindex="0" onclick="chartBackToLatest()">回到最近一期</div>';
@@ -601,7 +607,7 @@ function renderRecordChart(allRecords) {
       // 有记录但都不在窗口内时，卡片标题写着「最近记录 (N条)」而这里说「还没有记录」，
       // 两句放一起会自相矛盾 → 点明原因并指路
       inner = chartNavHtml(rangeTxt, true) +
-        '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天没有记录' +
+        '<div class="rc-empty">最近 ' + span + ' 天没有记录' +
         (allRecords.length ? '<br><span>更早的记录可点上方「‹」回看</span>' : '') + '</div>';
     }
     return '<div class="rc-wrap">' + inner + '</div>';
@@ -675,7 +681,7 @@ function renderRecordChart(allRecords) {
 
   var rangeTxt2 = days[0].date.slice(5) + ' — ' + days[days.length - 1].date.slice(5);
   return '<div class="rc-wrap">' +
-      chartNavHtml(rangeTxt2, shift === 0) +
+      chartNavHtml(rangeTxt2, endOff === 0) +
       '<svg class="rc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
         'aria-label="' + rangeTxt2 + ' 工时折线图，共 ' + vals.length + ' 天有记录">' + s + '</svg>' +
       '<div class="rc-summary">' + summary + '</div>' +
@@ -684,42 +690,83 @@ function renderRecordChart(allRecords) {
 
 // 图表顶部：‹ 上一期 ｜ 当前范围 ｜ 下一期 ›
 // atLatest 时「›」置灰不可点 —— 已经在最新一期，没有更近的可看
+// 图表顶部：‹ 上一屏 ｜ 当前范围 ｜ 下一屏 › ｜ 档位
+// atLatest 时「›」置灰不可点 —— 已经在最新，没有更近的可看。
+// 末尾的「N天」既显示当前档位，也可点击循环切换 —— 给不习惯双指手势的用户留个手动入口。
 function chartNavHtml(rangeTxt, atLatest) {
+  var span = currentChartSpan();
   return '<div class="rc-nav">' +
-      '<button class="rc-nav-btn" aria-label="往前看 ' + CHART_DAYS + ' 天" onclick="chartShift(1)">‹</button>' +
+      '<button class="rc-nav-btn" aria-label="往前看 ' + span + ' 天" onclick="chartShift(1)">‹</button>' +
       '<span class="rc-nav-range">' + WHT.escapeHtml(rangeTxt) + '</span>' +
-      '<button class="rc-nav-btn' + (atLatest ? ' is-off' : '') + '" aria-label="往后看 ' + CHART_DAYS + ' 天"' +
+      '<button class="rc-nav-btn' + (atLatest ? ' is-off' : '') + '" aria-label="往后看 ' + span + ' 天"' +
         (atLatest ? ' disabled' : ' onclick="chartShift(-1)"') + '>›</button>' +
+      '<button class="rc-nav-span" aria-label="当前显示 ' + span + ' 天，点击切换时间范围" ' +
+        'onclick="chartCycleSpan()">' + span + '天</button>' +
     '</div>';
 }
 
-// 当前图表窗口偏移。内存态优先，其次读设置 ——
-// reload 后 st 会被重置，只读 st 会导致「翻页状态存了却没用」。
-function currentChartShift() {
-  var v = (st.chartShift !== undefined) ? st.chartShift : WHT.getUserSettings().chartShift;
+// 图表档位（天）。内存态优先，其次读设置 ——
+// reload 后 st 会被重置，只读 st 会导致「设置存了却没用」。
+function currentChartSpan() {
+  var v = (st.chartSpan !== undefined) ? st.chartSpan : WHT.getUserSettings().chartSpan;
+  v = parseInt(v, 10);
+  return CHART_SPANS.indexOf(v) >= 0 ? v : CHART_SPAN_DEFAULT;
+}
+
+// 窗口右端距今天的天数（0 = 以今天结尾）。
+// 位置用「右端偏移」而不是「翻了几期」来记：档位会变，用期数记的话
+// 从 30 天缩到 7 天时同一个期数会指向完全不同的日期；
+// 用偏移记则**缩放时右端固定**，用户关注的时间段自然保留。
+function currentChartEnd() {
+  var v = (st.chartEnd !== undefined) ? st.chartEnd : WHT.getUserSettings().chartEnd;
   return Math.max(0, parseInt(v, 10) || 0);
 }
 
-// 往前("1")/往后("-1")翻一期。下界钉在 0（最新一期），不允许翻到未来。
-function chartShift(dir) {
-  WHT.haptic('light');
+// 统一写入位置 / 档位（传 null 表示该项不变）
+function setChartPos(endOff, span) {
   var s = WHT.getUserSettings();
-  var cur = currentChartShift();
-  var next = Math.max(0, cur + dir);
-  if (next === cur) return;             // 已在最新一期，点「›」不做事
-  st.chartShift = next;
-  s.chartShift = next;
+  if (endOff !== null && endOff !== undefined) {
+    st.chartEnd = endOff; s.chartEnd = endOff;
+    // 顺带清掉旧版字段（老版本这里存的是「期数」，语义不同，留着会误导）
+    st.chartShift = 0; s.chartShift = 0;
+  }
+  if (span) { st.chartSpan = span; s.chartSpan = span; }
   WHT.saveUserSettings(s);
   WHT.renderCurrentTab(true);
+}
+
+// 往前("1")/往后("-1")平移一个档位宽度。下界钉在 0（最新），不允许翻到未来。
+function chartShift(dir) {
+  var span = currentChartSpan();
+  var cur = currentChartEnd();
+  var next = Math.max(0, cur + dir * span);
+  if (next === cur) return;             // 已在最新，点「›」不做事
+  WHT.haptic('light');
+  setChartPos(next, null);
+}
+
+// 双指张开(dir=+1)放大 → 档位变小、看得清每天；捏合(dir=-1)缩小 → 档位变大、看更长趋势。
+// 缩放只改档位，**右端不动**，所以关注的时间段一直留在视野里。
+function chartZoom(dir) {
+  var cur = CHART_SPANS.indexOf(currentChartSpan());
+  var next = cur + (dir > 0 ? -1 : 1);
+  if (next < 0 || next >= CHART_SPANS.length) return false;   // 已到端点，无变化
+  WHT.haptic('light');
+  setChartPos(currentChartEnd(), CHART_SPANS[next]);
+  return true;
+}
+
+// 循环切换档位（导航栏「N天」按钮）—— 手动入口，与双指手势等价
+function chartCycleSpan() {
+  var cur = CHART_SPANS.indexOf(currentChartSpan());
+  var next = (cur + 1) % CHART_SPANS.length;
+  WHT.haptic('light');
+  setChartPos(currentChartEnd(), CHART_SPANS[next]);
 }
 
 function chartBackToLatest() {
   WHT.haptic('medium');
-  st.chartShift = 0;
-  var s = WHT.getUserSettings();
-  s.chartShift = 0;
-  WHT.saveUserSettings(s);
-  WHT.renderCurrentTab(true);
+  setChartPos(0, null);
 }
 
 // ── 视图切换（记住选择，下次打开还在同一视图） ──
@@ -815,28 +862,54 @@ function closeRecordSheet() {
 //   于是在图表上右滑看更早的时期，浏览器却「后退」跳回了上一个 tab
 //   （实测：从设置页切过来后右滑，直接跳回设置页）。
 //   修法：判定为横向后立刻 preventDefault，并可锁定整段手势，避免中途反复切换。
+//
+// 关键点 3：单指平移 与 双指缩放 用 mode 区分，互不干扰。
+//   一次捏合手势只切一档 —— 因为 chartZoom 会重建图表 DOM，
+//   继续沿用同一串触摸事件的目标元素已脱离文档，行为不可预期；
+//   档位只有 5 个、且有视觉反馈，重新捏一次是可以接受的代价。
 function bindChartSwipe() {
   var host = document.getElementById('pageContent');
   if (!host || host._chartSwipeBound) return;
   host._chartSwipeBound = true;
 
-  var sx = 0, sy = 0, tracking = false, axis = '';   // axis: '' | 'x' | 'y'
+  var sx = 0, sy = 0;              // 单指起点
+  var mode = '';                    // '' | 'pan' | 'zoom'
+  var pinchStart = 0;               // 双指初始间距
+
+  function inChart(t) { return !!(t && t.closest && t.closest('.rc-wrap')); }
+  function dist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
 
   host.addEventListener('touchstart', function(e) {
-    if (!e.target.closest || !e.target.closest('.rc-wrap')) { tracking = false; return; }
-    var t = e.touches[0];
-    sx = t.clientX; sy = t.clientY;
-    tracking = true; axis = '';
+    if (!inChart(e.target)) { mode = ''; return; }
+    if (e.touches.length >= 2) {
+      // 双指 → 缩放模式，本次手势不再做平移
+      mode = 'zoom';
+      pinchStart = dist(e.touches[0], e.touches[1]);
+      return;
+    }
+    mode = 'pan';
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
   }, { passive: true });
 
   // 必须 passive:false —— 否则 preventDefault() 会被浏览器忽略
   host.addEventListener('touchmove', function(e) {
-    if (!tracking) return;
-    if (e.touches.length !== 1) return;          // 双指交给缩放逻辑（方案待定）
+    if (mode === 'zoom') {
+      if (e.touches.length < 2 || !pinchStart) return;
+      if (e.cancelable) e.preventDefault();     // 别让浏览器接管成整页缩放
+      var ratio = dist(e.touches[0], e.touches[1]) / pinchStart;
+      // 阈值给得比较宽松，避免手指略微抖动就切档
+      if (ratio > 1.35 || ratio < 0.75) {
+        chartZoom(ratio > 1 ? 1 : -1);          // 张开=放大(档位变小)，捏合=缩小
+        pinchStart = 0;                          // 本次手势到此为止，避免连续切档
+      }
+      return;
+    }
+    if (mode !== 'pan' || e.touches.length !== 1) return;
     var t = e.touches[0];
     var dx = t.clientX - sx, dy = t.clientY - sy;
+    // 位移够大才判方向，避免手指轻微抖动就锁定
     if (!axis) {
-      // 位移够大才判方向，避免手指轻微抖动就锁定
       if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
         axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
       }
@@ -848,23 +921,25 @@ function bindChartSwipe() {
   }, { passive: false });
 
   host.addEventListener('touchend', function(e) {
-    if (!tracking) return;
-    tracking = false; axis = '';
-    var t = e.changedTouches[0];
-    var dx = t.clientX - sx, dy = t.clientY - sy;
-    // 判定必须**独立算一次**，不能复用 touchmove 里锁定的 axis ——
-    // 手指飞快轻扫（flick）时 touchmove 可能一次都不触发，
-    // 那时 axis 仍是空串，翻页就会静默失效（实测过）。
-    // 横向位移是纵向的 1.5 倍以上、且超过 50px → 判为翻页意图，否则放行给页面滚动
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      // 手指右滑 = 往回看（更早），左滑 = 往近看
-      chartShift(dx > 0 ? 1 : -1);
+    if (mode === 'pan') {
+      var t = e.changedTouches[0];
+      var dx = t.clientX - sx, dy = t.clientY - sy;
+      // 判定必须**独立算一次**，不能复用 touchmove 里锁定的 axis ——
+      // 手指飞快轻扫（flick）时 touchmove 可能一次都不触发，
+      // 那时 axis 仍是空串，翻页就会静默失效（实测过）。
+      // 横向位移是纵向的 1.5 倍以上、且超过 50px → 判为翻页意图，否则放行给页面滚动
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        // 手指右滑 = 往回看（更早），左滑 = 往近看
+        chartShift(dx > 0 ? 1 : -1);
+      }
     }
+    // 只在一根手指都不剩时才复位，避免双指变单指时被误判为平移
+    if (e.touches.length === 0) { mode = ''; axis = ''; pinchStart = 0; }
   }, { passive: true });
 
   // 手势被系统打断（来电、通知等）时复位，避免下次进入残留状态
   host.addEventListener('touchcancel', function() {
-    tracking = false; axis = '';
+    mode = ''; axis = ''; pinchStart = 0;
   }, { passive: true });
 }
 
@@ -1178,6 +1253,8 @@ function deleteCompTime(id) {
   WHT.closeRecordSheet = closeRecordSheet;
   WHT.confirmDeleteRecord = confirmDeleteRecord;
   WHT.chartShift = chartShift;
+  WHT.chartZoom = chartZoom;
+  WHT.chartCycleSpan = chartCycleSpan;
   WHT.chartBackToLatest = chartBackToLatest;
 
 })();

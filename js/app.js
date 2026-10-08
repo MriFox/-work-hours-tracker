@@ -92,7 +92,7 @@ function renderCurrentTab(ps){
     'editRecord','deleteRecord','toggleCompList','showAddCompTime','saveCompTime','editCompTime','updateCompTime','deleteCompTime',
     'toggleNote','loadMoreRecords','autoEarnCompTime','onRecordDateChange',
     'setRecordView','openRecordDetail','toggleRecordExpand','closeRecordSheet','confirmDeleteRecord',
-    'chartShift','chartBackToLatest',
+    'chartShift','chartZoom','chartCycleSpan','chartBackToLatest',
     'renderWeekPage','selectWeekDay','changeWeek','goToCurrentWeek',
     'renderMonthPage','selectMonthDay','changeMonth','goToCurrentMonth','openMonthPicker','closeMonthPicker','changePickerYear','selectPickerMonth','confirmMonthPicker','openCurrentMonthFromPace',
     'renderQuarterPage','switchQuarter','changeQuarterYear','goToMonthFromQuarter','editQuarterCarry','saveQuarterCarry','clearQuarterCarry',

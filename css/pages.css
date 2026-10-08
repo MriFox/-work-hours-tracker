@@ -997,6 +997,15 @@
   background: var(--bg-raised);
   font-variant-numeric: tabular-nums;
 }
+/* 档位按钮：既显示当前时间范围，也可点击循环切换（双指手势的手动替代入口） */
+.rc-nav-span {
+  flex: 0 0 auto; padding: 5px 10px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; color: var(--color-accent-text);
+  background: var(--bg-raised);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer; transition: background var(--transition-fast);
+}
+.rc-nav-span:active { background: var(--bg-input); }
 .rc-back {
   margin-top: var(--space-2); padding: 8px;
   text-align: center; font-size: 12px; font-weight: 500;
