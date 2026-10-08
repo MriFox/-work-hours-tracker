@@ -82,6 +82,7 @@ function renderCurrentTab(ps){
     'updateSetting','updateFlextimeSetting','renameMode','deleteMode',
     'addCommonSlot','editCommonSlot','saveCommonSlotEdit','removeCommonSlot','addQuarter','editQuarter','saveQuarterEdit','removeQuarter','toggleSettingsCollapse',
     'exportJSON','exportCSV','validateImportData','handleFileImport','clearAllData',
+    'generateTestData','openTestDataDialog',
     'openAvatarPicker','closeAvatarPicker','updateAvatar','uploadAvatar',
     'showEditProfile','cancelEditProfile','saveProfile',
     'selectLoginMode','handleLogin','enterApp','showUserModal','hideUserModal','switchUser','addNewUser','deleteUser','finishFlextimeWizard','selectAddMode',

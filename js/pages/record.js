@@ -725,10 +725,9 @@ function setRecordView(v) {
   WHT.renderCurrentTab(true);
 }
 
-// 记录弹窗。表格与图表共用，**按视图决定是否给操作按钮**：
-//   · 表格（明细管理）→ 详情 + 修改 / 删除 / 关闭
-//   · 图表（趋势洞察）→ 只有详情 + 关闭，保持「看图表时不修改」
-// 这样表格行尾就不需要单独的 ⋯ 菜单了 —— 点行即达，少一次点击。
+// 记录弹窗：表格与图表**完全一致**，都提供「修改 / 删除 / 关闭」。
+// （早期版本图表弹窗是只读的，v0.17.0 起按用户要求统一 ——
+//   点图表上的某天发现要改，不该被迫切回表格再找一遍。）
 function openRecordDetail(id) {
   var rec = WHT.getUserRecords().find(function(x) { return x.id === id; });
   if (!rec) return;
@@ -748,14 +747,11 @@ function openRecordDetail(id) {
   var dObj = new Date(rec.date + 'T00:00:00');
   var title = isNaN(dObj.getTime()) ? WHT.escapeHtml(String(rec.date)) : WHT.formatDate(rec.date);
 
-  var editable = (st.recordView || WHT.getUserSettings().recordView || 'table') === 'table';
   var idEsc = WHT.escapeHtml(rec.id);
-  var actions = editable
-    ? '<div class="rs-actions">' +
-        '<button class="btn rs-act" onclick="closeRecordSheet();editRecord(\'' + idEsc + '\')">修改</button>' +
-        '<button class="btn rs-act rs-danger" onclick="confirmDeleteRecord(\'' + idEsc + '\')">删除</button>' +
-      '</div>'
-    : '';
+  var actions = '<div class="rs-actions">' +
+      '<button class="btn rs-act" onclick="closeRecordSheet();editRecord(\'' + idEsc + '\')">修改</button>' +
+      '<button class="btn rs-act rs-danger" onclick="confirmDeleteRecord(\'' + idEsc + '\')">删除</button>' +
+    '</div>';
 
   var sheet = document.getElementById('recordSheetBody');
   if (!sheet) return;

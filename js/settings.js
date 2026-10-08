@@ -230,6 +230,15 @@ function renderSettingsPage(c) {
             '<span class="settings-label">导出 CSV</span>' +
             '<span class="settings-chevron">›</span>' +
           '</div>' +
+          // 测试数据生成：需输入密钥，会替换近 20 天的记录（其它日期不动）。
+          // 属于开发/自测用的入口，正式使用时可以整段删掉。
+          '<div class="settings-row settings-row--tap" onclick="openTestDataDialog()">' +
+            '<div class="settings-row-left settings-row-left--stack">' +
+              '<span class="settings-label">生成测试数据</span>' +
+              '<span class="settings-sub">替换近 20 天记录，需密钥</span>' +
+            '</div>' +
+            '<span class="settings-chevron">›</span>' +
+          '</div>' +
         '</div>' +
       '</div>' +
 
@@ -243,7 +252,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">牛马计时器</div>' +
-        '<div class="settings-about-version">v0.16.0</div>' +
+        '<div class="settings-about-version">v0.17.0</div>' +
       '</div>' +
 
     '</div>';
