@@ -313,6 +313,14 @@
     var actualStart = (todayRec && todayRec.startTime) ? todayRec.startTime : '';
     var actualEnd = (actualStart && perDay > 0 && perDay <= 16) ? addHoursToTime(actualStart, perDay) : '';
 
+    // 当天进行中记录的实时工时。**只作为渲染用的附加量**，绝不并进 done ——
+    // 因为 done 是「日均」（done ÷ 已工作天数）的分子，而日均的分母排除了当天；
+    // 若把实时工时算进 done，日均会随分钟数一路虚高跳动。
+    // 显示路径用 done + liveHours，计算路径继续用 done，两条路各自独立。
+    var liveHours = 0;
+    var lhToday = liveHoursOf(recs.find(function(x) { return x.date === td; }));
+    if (lhToday !== null && lhToday > 0) liveHours = lhToday;
+
     return {
       y: y, m: m, monthStr: ms,
       standardHours: std, modeType: mt, workDays: workDays,
@@ -321,7 +329,8 @@
       perDay: perDay, status: status, todayCounts: todayCounts,
       isCurrentMonth: isCurrentMonth,
       clockStart: clockStart, clockEnd: clockEnd,
-      actualStart: actualStart, actualEnd: actualEnd
+      actualStart: actualStart, actualEnd: actualEnd,
+      liveHours: liveHours
     };
   }
 
@@ -669,6 +678,56 @@
     };
   }
 
+  // 进行中记录的实时工时（小时）。周页 / 月度页的当日实时显示统一走这里，
+  // 与记录页的实时计时同源（都基于 dayProgress），避免各页各写一套。
+  //
+  // 返回 null 表示「没有可显示的实时值」，调用方应回退到「进行中」文案：
+  //   · 不是进行中的记录（已收工 / 无记录）
+  //   · 不是今天的记录 —— 历史日期没收工的记录若用「现在」去减会得出荒谬的值
+  //   · 已收工时间超过 24h —— 视为忘了打下班卡，这种数显示出来只会误导
+  function liveHoursOf(rec) {
+    if (!rec || !rec.startTime) return null;
+    if (!(rec.status === 'working' || (!rec.endTime && rec.startTime))) return null;
+    if (rec.date !== today()) return null;
+    var d = dayProgress('live', rec.startTime, '', 0, 0);
+    if (!d || d.elapsedMin <= 0) return 0;
+    if (d.elapsedMin > 24 * 60) return null;
+    return d.elapsedMin / 60;
+  }
+
+  // 记录在日历格 / 详情行里的工时显示文本。周页与月度页共用，避免两处各写一套。
+  //   已收工        → '9.0h'
+  //   进行中且有实时 → '5.0h'
+  //   进行中但算不出 → '进行中'（历史日期未收工 / 超过 24h 忘打卡）
+  function recordHoursTextOf(rec) {
+    if (!rec) return '';
+    var isWorking = rec.status === 'working' || (!rec.endTime && rec.startTime);
+    if (!isWorking) return rec.hours.toFixed(1) + 'h';
+    var h = liveHoursOf(rec);
+    return h === null ? '进行中' : h.toFixed(1) + 'h';
+  }
+
+  // ── 页面实时刷新定时器 ────────────────────────────────────────────────────
+  // 周页 / 月度页在「今天有进行中记录」时每 10s 重绘一次，让实时工时跟着走。
+  // 只保留一个实例：重复调用会先清掉上一个，避免来回切页堆出多个 interval。
+  function startPageLiveTimer(fn) {
+    stopPageLiveTimer();
+    if (typeof fn !== 'function') return;
+    state._pageTimer = setInterval(function() {
+      // 页面已被切走 → 自停，避免后台空转
+      if (state.currentTab !== 'week' && state.currentTab !== 'month') { stopPageLiveTimer(); return; }
+      if (!document.getElementById('pageContent')) { stopPageLiveTimer(); return; }
+      fn();
+    }, 10000);
+  }
+
+  function stopPageLiveTimer() {
+    if (state._pageTimer) {
+      clearInterval(state._pageTimer);
+      state._pageTimer = null;
+    }
+  }
+
   // 今日卡内部结构：标题行 + 双栏 hero + 进度条 + 起止 meta (+ 提醒)
   // opts.mode: 'idle' | 'live' | 'done'
   function dayBodyHtml(d, opts) {
@@ -869,6 +928,10 @@
   WHT.dayCardHtml = dayCardHtml;
   WHT.dayLiveHtml = dayLiveHtml;
   WHT.dayProgress = dayProgress;
+  WHT.liveHoursOf = liveHoursOf;
+  WHT.recordHoursTextOf = recordHoursTextOf;
+  WHT.startPageLiveTimer = startPageLiveTimer;
+  WHT.stopPageLiveTimer = stopPageLiveTimer;
   WHT.todayTargetOf = todayTargetOf;
   WHT.fmtDur = fmtDur;
   WHT.toggleHoliday = toggleHoliday;

@@ -1,0 +1,5 @@
+appId: wbapp_A3gZFN8K2ViNi7ADjMlk5p
+name: 牛马计时器
+localDir: D:\MiMoProjects\work-hours-tracker-latest\www
+appType: web
+entryHtml: index.html

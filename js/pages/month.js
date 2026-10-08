@@ -4,6 +4,20 @@
   var WHT = window.WHT;
   var st = WHT.state;
 
+  // 实时刷新时置 true → 跳过四卡的入场动画，否则每 10s 会闪一次
+  var _suppressAnim = false;
+
+  // 10s 心跳：重绘整页，让当天的进度环 / 已完成 / 差额 / 日历格跟着时间走。
+  // 复用 renderCurrentTab(true) 以保留滚动位置；选中日期存在 st.selectedDay 里，不会丢。
+  function refreshMonthLive() {
+    if (st.currentTab !== 'month') { WHT.stopPageLiveTimer(); return; }
+    var c = document.getElementById('pageContent');
+    if (!c) { WHT.stopPageLiveTimer(); return; }
+    _suppressAnim = true;
+    WHT.renderCurrentTab(true);
+    _suppressAnim = false;
+  }
+
   function renderMonthPage(c) {
     var n = new Date();
     var totalMonths = n.getFullYear() * 12 + n.getMonth() + st.monthOffset;
@@ -17,15 +31,20 @@
     var mr = r.filter(function(x) { return x.date.startsWith(ms); });
     // 追赶口径统一由 WHT.monthPace 计算（目标 / 已完成 / 剩余工作日 / 日均需求）
     var pace = WHT.monthPace(y, m);
-    var th = pace.done;
+    // 当天进行中的实时工时：只加进「显示口径」，让进度环 / 已完成 / 差额当天就实时走动。
+    // 绝不能并进 pace.done —— 那是「日均」的分子，而日均的分母排除了当天，
+    // 混进来会让日均随分钟虚高跳动（用户明确要求日均维持「打完下班卡再算」）。
+    var live = pace.liveHours || 0;
+    var doneSettled = pace.done;          // 已收工工时：算日均用
+    var th = doneSettled + live;          // 已完成（含今天实时）：进度环/四卡用
     var tar = pace.target;
     var workDays = pace.workDays;
     // diff 沿用既有语义：正数 = 超额领先，负数 = 还差（pace.need 是「还需」，故取反）
     var diff = th - tar;
     var pg = tar > 0 ? Math.min(100, (th / tar) * 100) : 0;
-    // 「待开始」只表示本月完全没有记录。若沿用 th === 0，则「只在节假日上过班」
-    // 也会被判定成未开始，整页显示「待开始」，与旁边的加班费自相矛盾。
-    var isEmpty = !mr.some(function(x) { return x.status !== 'working'; });
+    // 空状态按「有没有记录」判定，而不是「已收工工时是不是 0」：
+    // 只在节假日上过班、或今天刚打上班卡时，都不该整页显示「待开始」。
+    var isEmpty = mr.length === 0;
     // 进度节奏改用工作日口径（已过工作日 / 本月总工作日），与追赶提示同源
     var passedRatio = workDays > 0 ? Math.min(1, pace.elapsedWorkDays / workDays) : 1;
     var ringClass = WHT.paceClass(pg, passedRatio * 100, isEmpty);
@@ -44,8 +63,9 @@
     var circumference = Math.PI * radius;
     var offset = circumference - (pg / 100) * circumference;
 
+    // 日均 = 已收工工时 ÷ 已工作天数（两者都排除当天）→ 不受实时工时影响
     var monthWorkedDays = mr.filter(function(x) { return !WHT.isHoliday(x.date) && x.status !== 'working'; }).length;
-    var monthAvg = monthWorkedDays > 0 ? (th / monthWorkedDays) : 0;
+    var monthAvg = monthWorkedDays > 0 ? (doneSettled / monthWorkedDays) : 0;
 
     var statsHtml = '<div class="quarter-stats-grid">' +
       '<div class="quarter-stat-card">' +
@@ -127,10 +147,12 @@
       }
       if (st.selectedDay === x) cls.push('calendar-day-selected');
       var xd = new Date(x + 'T00:00:00');
-      var ariaLabel = (xd.getMonth() + 1) + '月' + xd.getDate() + '日 ' + dt.label + (rec ? '，已记录 ' + rec.hours.toFixed(1) + ' 小时' : '');
+      var recText = rec ? WHT.recordHoursTextOf(rec) : '';
+      var ariaLabel = (xd.getMonth() + 1) + '月' + xd.getDate() + '日 ' + dt.label +
+        (rec ? (recText === '进行中' ? '，进行中' : '，已记录 ' + recText) : '');
       calCells += '<div class="' + cls.join(' ') + '" onclick="selectMonthDay(\'' + x + '\')" oncontextmenu="event.preventDefault();toggleHoliday(\'' + x + '\')" role="button" tabindex="0" aria-label="' + ariaLabel + '">' +
         xd.getDate() +
-        (rec ? '<div class="calendar-day-hours">' + (rec.status === 'working' || (!rec.endTime && rec.startTime) ? '进行中' : rec.hours.toFixed(1) + 'h') + '</div>' : '') +
+        (rec ? '<div class="calendar-day-hours">' + recText + '</div>' : '') +
         (dt.badge ? '<div class="calendar-day-holiday-badge' + (dt.badge === '班' ? ' is-work' : '') + '" title="' + dt.label + '" aria-hidden="true">' + dt.badge + '</div>' : '') +
       '</div>';
     });
@@ -147,7 +169,14 @@
     if (!st.selectedDay) st.selectedDay = d.includes(WHT.today()) ? WHT.today() : d[0];
     renderMonthDetail(st.selectedDay);
 
-    requestAnimationFrame(function() {
+    // 今天有进行中的记录 → 启动 10s 心跳（只此一处，切页或未收工消失时自停）
+    if (WHT.liveHoursOf(mr.find(function(x) { return x.date === WHT.today(); })) !== null) {
+      WHT.startPageLiveTimer(refreshMonthLive);
+    } else {
+      WHT.stopPageLiveTimer();
+    }
+
+    if (!_suppressAnim) requestAnimationFrame(function() {
       var cards = c.querySelectorAll('.quarter-stat-card');
       cards.forEach(function(card, i) {
         card.style.opacity = '0';
@@ -169,11 +198,13 @@
     var picker = WHT.dayTypePickerHtml(d);
     if (r) {
       var isWorking = r.status === 'working' || (!r.endTime && r.startTime);
+      // 与日历格同源：进行中且有实时值就直接显示它
+      var hoursText = WHT.recordHoursTextOf(r);
       el.innerHTML = '<div class="bento week-detail">' +
         '<div class="week-detail-row"><span class="week-detail-label">日期</span><span class="week-detail-value">' + WHT.formatDate(r.date) + '</span></div>' +
         '<div class="week-detail-row"><span class="week-detail-label">上班</span><span class="week-detail-value">' + WHT.escapeHtml(r.startTime) + '</span></div>' +
         '<div class="week-detail-row"><span class="week-detail-label">下班</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">等待中...</span>' : WHT.escapeHtml(r.endTime)) + '</span></div>' +
-        '<div class="week-detail-row"><span class="week-detail-label">工时</span><span class="week-detail-value">' + (isWorking ? '<span style="color:var(--color-warning)">进行中</span>' : r.hours.toFixed(1) + 'h') + '</span></div>' +
+        '<div class="week-detail-row"><span class="week-detail-label">工时</span><span class="week-detail-value">' + (hoursText === '进行中' ? '<span style="color:var(--color-warning)">进行中</span>' : hoursText) + '</span></div>' +
         '<div class="week-detail-row"><span class="week-detail-label">类型</span><span class="week-detail-value">' + dt.label + '</span></div>' +
         (r.note ? '<div class="week-detail-row"><span class="week-detail-label">备注</span><span class="week-detail-value">' + WHT.escapeHtml(r.note) + '</span></div>' : '') +
         picker +

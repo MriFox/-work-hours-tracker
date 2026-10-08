@@ -61,7 +61,7 @@ function renderCurrentTab(ps){
     document.getElementById('userModal').classList.remove('active');
     return;
   }
-  var psVal=ps===true;var c=document.getElementById('pageContent');if(!c)return;var sp=psVal?c.scrollTop:0;try{switch(st.currentTab){case'record':WHT.renderRecordPage(c);break;case'week':WHT.renderWeekPage(c);break;case'month':WHT.renderMonthPage(c);break;case'quarter':WHT.renderQuarterPage(c);break;case'settings':WHT.renderSettingsPage(c);break}}catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">页面加载出错，请重试</div></div>'}if(psVal)requestAnimationFrame(function(){c.scrollTop=sp})
+  var psVal=ps===true;var c=document.getElementById('pageContent');if(!c)return;var sp=psVal?c.scrollTop:0;WHT.stopPageLiveTimer();try{switch(st.currentTab){case'record':WHT.renderRecordPage(c);break;case'week':WHT.renderWeekPage(c);break;case'month':WHT.renderMonthPage(c);break;case'quarter':WHT.renderQuarterPage(c);break;case'settings':WHT.renderSettingsPage(c);break}}catch(e){c.innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">页面加载出错，请重试</div></div>'}if(psVal)requestAnimationFrame(function(){c.scrollTop=sp})
 }
 
   // ── 核心导出 ──
