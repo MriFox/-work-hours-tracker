@@ -1,6 +1,6 @@
 {
   "name": "work-hours-tracker",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "牛马计时器 - 轻量级工时记录工具 PWA",
   "main": "index.html",
   "scripts": {

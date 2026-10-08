@@ -587,17 +587,24 @@ function renderRecordChart(allRecords) {
   days.forEach(function(x) { if (x.v !== null) vals.push(x.v); });
   if (!vals.length) {
     var rangeTxt = days[0].date.slice(5) + ' — ' + days[days.length - 1].date.slice(5);
+    // ⚠️ 空状态也必须包在 .rc-wrap 里，且 chartNavHtml 放最上面。
+    //   v0.17.1 踩过：原先空状态没这层容器，而手势绑定靠 `closest('.rc-wrap')` 判定，
+    //   于是滑到「没有记录的那一期」后手势就失效了，怎么滑都出不去，
+    //   只能点「回到最近一期」。顺带 touch-action: pan-y 也只作用在 .rc-wrap 上。
+    //   结构保持一致后，空期也能继续滑动翻回去。
+    var inner;
     if (shift > 0) {
-      // 翻到的这一期是空的 → 给「回到最近」，别让人以为数据丢了
-      return '<div class="rc-empty">' + rangeTxt + '<br><span>这段时间没有记录</span></div>' +
-             chartNavHtml(rangeTxt, false) +
-             '<div class="rc-back" role="button" tabindex="0" onclick="chartBackToLatest()">回到最近一期</div>';
+      inner = chartNavHtml(rangeTxt, false) +
+        '<div class="rc-empty">' + rangeTxt + '<br><span>这段时间没有记录</span></div>' +
+        '<div class="rc-back" role="button" tabindex="0" onclick="chartBackToLatest()">回到最近一期</div>';
+    } else {
+      // 有记录但都不在窗口内时，卡片标题写着「最近记录 (N条)」而这里说「还没有记录」，
+      // 两句放一起会自相矛盾 → 点明原因并指路
+      inner = chartNavHtml(rangeTxt, true) +
+        '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天没有记录' +
+        (allRecords.length ? '<br><span>更早的记录可点上方「‹」回看</span>' : '') + '</div>';
     }
-    // 有记录但都不在窗口内时，卡片标题写着「最近记录 (N条)」而这里说「还没有记录」，
-    // 两句放一起会自相矛盾 → 点明原因并指路
-    return '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天没有记录' +
-           (allRecords.length ? '<br><span>更早的记录可点上方「‹」回看</span>' : '') + '</div>' +
-           chartNavHtml(rangeTxt, true);
+    return '<div class="rc-wrap">' + inner + '</div>';
   }
 
   var top = Math.max(std, Math.max.apply(null, vals));
@@ -799,32 +806,65 @@ function closeRecordSheet() {
 
 // ── 图表横向拖动翻页 ──────────────────────────────────────────────────────
 // 用事件委托挂在 pageContent 上（每次重绘都会换 DOM，绑具体节点会失效）。
-// 关键是与「页面上下滚动」共存：只有**横向意图明显**时才拦截 ——
-// 否则用户想上下滚页面，却被图表吃掉手势，体验会很糟。
+//
+// 关键点 1：与「页面上下滚动」共存 —— 只有**横向意图明显**时才拦截。
+// 关键点 2（踩过的坑）：必须在 touchmove 阶段 preventDefault。
+//   只监听 touchstart/touchend 是没用的 —— 浏览器在 touchmove 时就已判定这是
+//   「横向滑动」，会执行自己的默认行为（含 **前进 / 后退导航**）。
+//   而应用的 tab 切换会 pushState，历史里堆着上一个 tab，
+//   于是在图表上右滑看更早的时期，浏览器却「后退」跳回了上一个 tab
+//   （实测：从设置页切过来后右滑，直接跳回设置页）。
+//   修法：判定为横向后立刻 preventDefault，并可锁定整段手势，避免中途反复切换。
 function bindChartSwipe() {
   var host = document.getElementById('pageContent');
   if (!host || host._chartSwipeBound) return;
   host._chartSwipeBound = true;
 
-  var sx = 0, sy = 0, tracking = false;
+  var sx = 0, sy = 0, tracking = false, axis = '';   // axis: '' | 'x' | 'y'
 
   host.addEventListener('touchstart', function(e) {
-    // 只有落在图表区域内才跟踪
     if (!e.target.closest || !e.target.closest('.rc-wrap')) { tracking = false; return; }
     var t = e.touches[0];
-    sx = t.clientX; sy = t.clientY; tracking = true;
+    sx = t.clientX; sy = t.clientY;
+    tracking = true; axis = '';
   }, { passive: true });
+
+  // 必须 passive:false —— 否则 preventDefault() 会被浏览器忽略
+  host.addEventListener('touchmove', function(e) {
+    if (!tracking) return;
+    if (e.touches.length !== 1) return;          // 双指交给缩放逻辑（方案待定）
+    var t = e.touches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    if (!axis) {
+      // 位移够大才判方向，避免手指轻微抖动就锁定
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+    }
+    if (axis === 'x' && e.cancelable) {
+      // 阻止浏览器把横向滑动当成滚动 / 导航手势
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   host.addEventListener('touchend', function(e) {
     if (!tracking) return;
-    tracking = false;
+    tracking = false; axis = '';
     var t = e.changedTouches[0];
     var dx = t.clientX - sx, dy = t.clientY - sy;
+    // 判定必须**独立算一次**，不能复用 touchmove 里锁定的 axis ——
+    // 手指飞快轻扫（flick）时 touchmove 可能一次都不触发，
+    // 那时 axis 仍是空串，翻页就会静默失效（实测过）。
     // 横向位移是纵向的 1.5 倍以上、且超过 50px → 判为翻页意图，否则放行给页面滚动
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       // 手指右滑 = 往回看（更早），左滑 = 往近看
       chartShift(dx > 0 ? 1 : -1);
     }
+  }, { passive: true });
+
+  // 手势被系统打断（来电、通知等）时复位，避免下次进入残留状态
+  host.addEventListener('touchcancel', function() {
+    tracking = false; axis = '';
   }, { passive: true });
 }
 
