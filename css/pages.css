@@ -1293,20 +1293,12 @@
 .week-day.is-compensatory { background: rgba(52,199,89,0.10); color: #1E8E3E; }
 [data-theme="dark"] .calendar-day.is-compensatory,
 [data-theme="dark"] .week-day.is-compensatory { background: rgba(52,199,89,0.16); color: #5BD97B; }
-[data-style="warm"] .calendar-day.is-compensatory,
-[data-style="warm"] .week-day.is-compensatory { background: #E6F2EA; color: #2E7D5B; }
-[data-style="warm"][data-theme="dark"] .calendar-day.is-compensatory,
-[data-style="warm"][data-theme="dark"] .week-day.is-compensatory { background: rgba(90,170,138,0.18); color: #7FD3AE; }
 
 .calendar-day-holiday-badge.is-work { background: #34C759; }
 .week-day .holiday-badge.holiday-badge-work { background: #34C759; }
-[data-style="warm"] .calendar-day-holiday-badge.is-work,
-[data-style="warm"] .week-day .holiday-badge.holiday-badge-work { background: #5AAA8A; }
 
 .badge-workday { background: rgba(52,199,89,0.14); color: #1E8E3E; }
 [data-theme="dark"] .badge-workday { background: rgba(52,199,89,0.20); color: #5BD97B; }
-[data-style="warm"] .badge-workday { background: rgba(90,170,138,0.16); color: #2E7D5B; }
-[data-style="warm"][data-theme="dark"] .badge-workday { background: rgba(90,170,138,0.22); color: #7FD3AE; }
 
 .daytype-picker {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
@@ -1328,57 +1320,9 @@
 }
 
 /* ═══ 暖色模式 · 日历暖调覆盖 ═══ */
-[data-style="warm"] .week-day.has-record {
-  background: linear-gradient(135deg, #F2ECE0, #D9CBB5);
-  color: #6B5D4A;
-}
-[data-style="warm"] .calendar-day.has-record {
-  background: linear-gradient(135deg, #F2ECE0, #D9CBB5);
-  color: #6B5D4A;
-}
-[data-style="warm"] .week-day.has-record .week-day-hours {
-  background: rgba(90, 170, 138, 0.15);
-  color: var(--color-success);
-}
-[data-style="warm"] .calendar-day.has-record .calendar-day-hours {
-  background: rgba(90, 170, 138, 0.15);
-  color: var(--color-success);
-}
-[data-style="warm"] .calendar-day.is-holiday { background: #FDF0D5; color: #B87A20; }
-[data-style="warm"] .calendar-day-holiday-badge { background: #E89520; }
-[data-style="warm"] .week-day .holiday-badge { background: #E89520; }
-[data-style="warm"] .week-day.is-holiday { background: #FDF0D5; }
 /* 暖色暗色保持现有深色渐变，仅微调 */
-[data-style="warm"][data-theme="dark"] .week-day.has-record {
-  background: linear-gradient(135deg, rgba(168,152,128,0.15), rgba(168,152,128,0.08));
-  color: #C5B8A5;
-}
-[data-style="warm"][data-theme="dark"] .calendar-day.has-record {
-  background: linear-gradient(135deg, rgba(168,152,128,0.15), rgba(168,152,128,0.08));
-  color: #C5B8A5;
-}
-[data-style="warm"][data-theme="dark"] .week-day.has-record .week-day-hours {
-  background: rgba(101, 201, 160, 0.18);
-  color: var(--color-success);
-}
-[data-style="warm"][data-theme="dark"] .calendar-day.has-record .calendar-day-hours {
-  background: rgba(101, 201, 160, 0.18);
-  color: var(--color-success);
-}
 
 /* ═══ 暖色模式 · 季度暖调覆盖 ═══ */
-[data-style="warm"] .qmonths-fill {
-  background: #C8B796;
-}
-[data-style="warm"] .qmonths-row.current {
-  background: #F2EDE4;
-}
-[data-style="warm"][data-theme="dark"] .qmonths-fill {
-  background: rgba(168, 152, 128, 0.35);
-}
-[data-style="warm"][data-theme="dark"] .qmonths-row.current {
-  background: rgba(168, 152, 128, 0.15);
-}
 
 /* ========== 季度视图 Quarter Dashboard ========== */
 .quarter-nav {
@@ -1571,10 +1515,6 @@
 .settings-card--collapsible.collapsed {
   max-height: 0;
   margin-top: 0;
-}
-[data-style="warm"] .settings-card {
-  box-shadow: var(--neu-sm);
-  border: 0.5px solid var(--border-card);
 }
 [data-style="flat"] .settings-card {
   box-shadow: none;

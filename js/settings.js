@@ -145,10 +145,6 @@ function renderSettingsPage(c) {
             '<span class="settings-label">深色模式</span>' +
             '<div class="ios-toggle' + (s.darkMode ? ' active' : '') + '" onclick="event.stopPropagation();toggleDarkMode()"></div>' +
           '</div>' +
-          '<div class="settings-row settings-row--tap" onclick="toggleStyle()">' +
-            '<span class="settings-label">视觉风格</span>' +
-            '<div class="settings-item-right"><span class="settings-value">' + WHT.getStyleLabel(s.style) + '</span><span class="settings-chevron">›</span></div>' +
-          '</div>' +
         '</div>' +
       '</div>' +
 
@@ -247,7 +243,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">牛马计时器</div>' +
-        '<div class="settings-about-version">v0.14.1</div>' +
+        '<div class="settings-about-version">v0.14.2</div>' +
       '</div>' +
 
     '</div>';

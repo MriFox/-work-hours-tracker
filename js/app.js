@@ -77,7 +77,7 @@ function renderCurrentTab(ps){
     'haptic','genId','escapeHtml','today','getDayType','isHoliday','isWeekend','getDayOfWeek','countWorkDays','setDayOverride','formatDate','calculateHours','getProgressClass','toggleHoliday',
     'loadData','saveUsers','getUserSettings','saveUserSettings','getUserRecords','saveUserRecords','getUserCompTime','saveUserCompTime','getUserModes','saveUserModes','getDefaultSettings','getDefaultModes',
     'showToast','showToastWithAction','showConfirm','closeConfirm',
-    'toggleDarkMode','applyTheme','applyStyle','toggleStyle','getStyleLabel',
+    'toggleDarkMode','applyTheme','applyStyle',
     'renderModeBar','switchMode','addNewMode','switchTab','renderCurrentTab','renderSettingsPage',
     'updateSetting','updateFlextimeSetting','renameMode','deleteMode',
     'addCommonSlot','editCommonSlot','saveCommonSlotEdit','removeCommonSlot','addQuarter','editQuarter','saveQuarterEdit','removeQuarter','toggleSettingsCollapse',
