@@ -21,7 +21,69 @@
 
   function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
   function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function today() { return new Date().toISOString().slice(0,10); }
+  // 本地日期字符串。**不要用 toISOString()** —— 那返回的是 UTC 日期，
+  // 在东八区会导致 00:00~08:00 之间取到「前一天」，打卡会写到错误日期上。
+  function localDateStr(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
+
+  // 「这一班还没结束」的判定 —— 全项目唯一入口（业务日、实时工时、日历格都用它）。
+  // 兼容两种历史写法：status === 'working'，或有 startTime 但没 endTime。
+  function isOpenRecord(rec) {
+    return !!(rec && rec.startTime && (rec.status === 'working' || !rec.endTime));
+  }
+
+  // 未收工的记录。跨天加班时，这条记录属于「前一天」——
+  // 下班卡的归属、业务日的判定都以它为准，不靠时间猜测。
+  function openRecordOf(recs) {
+    var list;
+    try { list = recs || WHT.getUserRecords() || []; } catch (e) { list = recs || []; }
+    for (var i = list.length - 1; i >= 0; i--) {
+      if (isOpenRecord(list[i])) return list[i];
+    }
+    return null;
+  }
+
+  // 业务日切分点（小时）。默认 7：次日 7:00 前的下班卡仍算前一天。
+  // 只在「没有未收工记录」时兜底 —— 打过上班卡的加班场景由记录本身决定，不依赖这个值。
+  function dayCutoffHour() {
+    try {
+      var s = WHT.getUserSettings();
+      var v = s && s.dayCutoffHour;
+      if (typeof v === 'number' && isFinite(v) && v >= 0 && v <= 12) return v;
+    } catch (e) {}
+    return 7;
+  }
+
+  // 自然日（不参与业务日切分）。打上班卡用它 ——
+  // 上班卡的语义是「从此刻开始新一天的班」，若按业务日算，
+  // 早班 6:30 打卡会被推到前一天，这正是需要避免的误伤。
+  function naturalToday() { return localDateStr(new Date()); }
+
+  // 业务日。两层判定，**优先靠状态而不是时间**，这样「加班跨天」与「早班」不会互相干扰：
+  //   ① 有未收工记录，且它属于今天、或「次日且仍在切分点窗口内」→ 业务日就是那一班
+  //      （加班到次日凌晨时，页面显示的还是前一天那班，下班卡也归它）
+  //   ② 否则按切分点算术 —— 只兜底「没有未收工记录」的情况（例如忘打上班卡）
+  // 加窗口限制是为了防止陈旧记录（忘了一周没打下班卡）把业务日永久钉在过去。
+  function today() {
+    var now = new Date();
+    var nat = localDateStr(now);
+    var cut = dayCutoffHour();
+    var open = openRecordOf();
+    if (open && open.date) {
+      var diff = Math.round((new Date(nat + 'T00:00:00') - new Date(open.date + 'T00:00:00')) / 86400000);
+      if (diff === 0) return open.date;
+      if (diff === 1 && now.getHours() < cut) return open.date;
+    }
+    if (cut > 0 && now.getHours() < cut) {
+      var y = new Date(now.getTime());
+      y.setDate(y.getDate() - 1);
+      return localDateStr(y);
+    }
+    return nat;
+  }
 
   // ── 日期类型判定（全项目唯一权威入口） ──
   // 优先级：用户覆盖 > 内置法定节假日 > 旧自定义节假日 > 周末 > 默认工作日
@@ -687,7 +749,7 @@
   //   · 已收工时间超过 24h —— 视为忘了打下班卡，这种数显示出来只会误导
   function liveHoursOf(rec) {
     if (!rec || !rec.startTime) return null;
-    if (!(rec.status === 'working' || (!rec.endTime && rec.startTime))) return null;
+    if (!isOpenRecord(rec)) return null;
     if (rec.date !== today()) return null;
     var d = dayProgress('live', rec.startTime, '', 0, 0);
     if (!d || d.elapsedMin <= 0) return 0;
@@ -701,8 +763,7 @@
   //   进行中但算不出 → '进行中'（历史日期未收工 / 超过 24h 忘打卡）
   function recordHoursTextOf(rec) {
     if (!rec) return '';
-    var isWorking = rec.status === 'working' || (!rec.endTime && rec.startTime);
-    if (!isWorking) return rec.hours.toFixed(1) + 'h';
+    if (!isOpenRecord(rec)) return rec.hours.toFixed(1) + 'h';
     var h = liveHoursOf(rec);
     return h === null ? '进行中' : h.toFixed(1) + 'h';
   }
@@ -932,6 +993,11 @@
   WHT.recordHoursTextOf = recordHoursTextOf;
   WHT.startPageLiveTimer = startPageLiveTimer;
   WHT.stopPageLiveTimer = stopPageLiveTimer;
+  WHT.localDateStr = localDateStr;
+  WHT.naturalToday = naturalToday;
+  WHT.isOpenRecord = isOpenRecord;
+  WHT.openRecordOf = openRecordOf;
+  WHT.dayCutoffHour = dayCutoffHour;
   WHT.todayTargetOf = todayTargetOf;
   WHT.fmtDur = fmtDur;
   WHT.toggleHoliday = toggleHoliday;

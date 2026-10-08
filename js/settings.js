@@ -176,6 +176,26 @@ function renderSettingsPage(c) {
               '<div class="settings-item-right"><span class="settings-value">' + h(ws) + '</span><span class="settings-chevron">›</span></div>' +
             '</div>';
           })() +
+          // 「跨天工时归属」：很多公司规定次日早上几点前打下班卡，工时仍算前一天。
+          // 注意它只是**兜底**——正常打过上班卡时，归属由那条未收工的记录本身决定，
+          // 不依赖这个值。所以调大它不会误伤早班（上班卡永远归当天）。
+          (function() {
+            var cur = WHT.dayCutoffHour();
+            var opts = [0, 4, 5, 6, 7, 8].map(function(v) {
+              return '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' +
+                (v === 0 ? '不跨天' : String(v).padStart(2, '0') + ':00') + '</option>';
+            }).join('');
+            return '<div class="settings-row" onclick="var sel=this.querySelector(\'select\');if(sel)sel.focus()">' +
+              '<div class="settings-row-left settings-row-left--stack">' +
+                '<span class="settings-label">跨天工时归属</span>' +
+                '<span class="settings-sub">次日几点前下班仍算前一天</span>' +
+              '</div>' +
+              '<div class="settings-item-right">' +
+                '<select class="input" style="width:92px;height:32px;font-size:15px;text-align:center;padding:0 4px;background:var(--bg-input);border-radius:8px;border:none" ' +
+                  'onchange="updateSetting(\'dayCutoffHour\',parseFloat(this.value))">' + opts + '</select>' +
+              '</div>' +
+            '</div>';
+          })() +
         '</div>' +
       '</div>' +
 
@@ -228,7 +248,7 @@ function renderSettingsPage(c) {
       // ── 关于 ──
       '<div class="settings-about">' +
         '<div class="settings-about-name">牛马计时器</div>' +
-        '<div class="settings-about-version">v0.13.0</div>' +
+        '<div class="settings-about-version">v0.14.0</div>' +
       '</div>' +
 
     '</div>';

@@ -48,7 +48,10 @@ function punchIn() {
   var m = now.getMinutes();
   var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
   var r = WHT.getUserRecords();
-  var td = WHT.today();
+  // 上班卡归「自然日」，不走业务日切分 ——
+  // 上班卡的语义是「从此刻开始新一天的班」。若按业务日算，
+  // 早班 6:30 打卡会被切分点推到前一天，这就是要避免的误伤。
+  var td = WHT.naturalToday();
 
   // 检查今天是否已有记录
   var ex = r.findIndex(function(x) { return x.date === td; });
@@ -66,7 +69,13 @@ function punchIn() {
   WHT.saveUserRecords(r);
   st.formDate = td; st.formStart = timeStr;
 
-  WHT.showToast('上班打卡 ' + timeStr + ' ✓');
+  // 若还有别的班没收工，顺带提醒一句（不阻断，仍允许开始新一天）
+  var open = WHT.openRecordOf(r.filter(function(x) { return x !== rec; }));
+  if (open && open.date !== td) {
+    WHT.showToast('上班打卡 ' + timeStr + ' · ' + open.date.slice(5) + ' 的班还没下班', 'warning');
+  } else {
+    WHT.showToast('上班打卡 ' + timeStr + ' ✓');
+  }
 
   // 添加打卡动画
   WHT.renderCurrentTab(true);
@@ -83,23 +92,24 @@ function punchOut() {
   var m = now.getMinutes();
   var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
   var r = WHT.getUserRecords();
-  var td = WHT.today();
-  var ex = r.findIndex(function(x) { return x.date === td; });
-  if (ex < 0) {
+  // 下班卡归「最近一条未收工的记录」，**不按日期找** ——
+  // 跨天加班（10-07 上班、10-08 06:00 下班）能精确落到 10-07 那条上，
+  // 既不需要用时间猜测，也不会影响早班（早班时没有未收工记录，走下面的提示分支）。
+  var rec = WHT.openRecordOf(r);
+  if (!rec) {
     WHT.showToast('请先进行上班打卡', 'warning');
     return;
   }
-  var rec = r[ex];
   rec.endTime = timeStr;
   rec.hours = WHT.calculateHours(rec.startTime, timeStr);
   rec.status = 'done';
-  r[ex] = rec;
   WHT.saveUserRecords(r);
 
-  // 自动累计调休（大小周模式）
-  autoEarnCompTime(td, rec.hours);
+  // 自动累计调休（大小周模式）—— 记到记录自己的日期上，跨天时不会错记到今天
+  autoEarnCompTime(rec.date, rec.hours);
 
-  WHT.showToast('下班打卡 ' + timeStr + ' · 今日 ' + rec.hours.toFixed(2) + 'h ✓');
+  var crossDay = rec.date !== WHT.naturalToday();
+  WHT.showToast('下班打卡 ' + timeStr + ' · ' + (crossDay ? rec.date.slice(5) + ' ' : '') + rec.hours.toFixed(2) + 'h ✓');
 
   WHT.renderCurrentTab(true);
   setTimeout(function() {
