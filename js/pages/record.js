@@ -362,7 +362,7 @@ function renderRecordPage(c) {
   }
 
   // ── 最近记录：表格 / 图表双视图 ──
-  // 表格 = 明细管理（行内 ⋯ 可改可删）；图表 = 趋势洞察（只读，点某天看详情）
+  // 表格 = 明细管理（点行弹「详情+修改/删除」）；图表 = 趋势洞察（只读，点某天只看详情）
   var allRecords = r.slice().sort(function(a,b) { return b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime); });
   var recentHtml = renderRecordSection(allRecords);
 
@@ -401,6 +401,9 @@ function renderRecordPage(c) {
     if (mti) mti.textContent = '▼';
   }
 
+  // 图表横向拖动翻页（事件委托，只需绑一次）
+  bindChartSwipe();
+
   // 启动/停止实时计时器
   stopWorkingTimer();
   if (punchState === 'working') {
@@ -409,17 +412,27 @@ function renderRecordPage(c) {
 }
 
 // ══════════ 最近记录：表格 / 图表双视图 ══════════
-// 分工：表格 = 明细管理（行内 ⋯ 可改可删）；图表 = 趋势洞察（只读，点某天看详情）
+// 分工：表格 = 明细管理（点行弹「详情+修改/删除」）；图表 = 趋势洞察（点某天只看详情）
 //
 // 图表窗口刻意取「最近 30 个自然日」，与表格的「最近 N 条」不一致：
 // 表格是查某天的明细（10 条够用），图表是看走向（点越多趋势越准），职责本就不同。
 var CHART_DAYS = 30;
+// 表格折叠时显示的行数。3 条 = 最近三天，一屏就能看完，
+// 不会把下面的「调休管理」挤到很远。
+var COLLAPSED_ROWS = 3;
 
 function renderRecordSection(allRecords) {
   if (!allRecords.length) return '';
   var view = st.recordView || WHT.getUserSettings().recordView || 'table';
-  var limit = st.recordLimit || 10;
-  var hasMore = allRecords.length > limit;
+  var expanded = (st.recordExpanded !== undefined)
+    ? st.recordExpanded
+    : !!WHT.getUserSettings().recordExpanded;
+
+  // 折叠时不显示「加载更多」——两者职责重叠（都是往卡片里塞更多行），
+  // 同时出现会让人不知道该点哪个。
+  var limit = expanded ? (st.recordLimit || 10) : COLLAPSED_ROWS;
+  var hasMore = expanded && allRecords.length > limit;
+  var needToggle = allRecords.length > COLLAPSED_ROWS;
 
   var head = '<div class="record-card-header">' +
       '<div class="section-title">最近记录 (' + allRecords.length + '条)</div>' +
@@ -435,14 +448,23 @@ function renderRecordSection(allRecords) {
     ? renderRecordChart(allRecords)
     : '<div class="rt-wrap">' + renderRecordTable(allRecords.slice(0, limit), allRecords) + '</div>';
 
-  var foot = (view === 'table' && hasMore)
-    ? '<div class="record-load-more" onclick="loadMoreRecords()">加载更多...</div>'
-    : '';
+  var foot = '';
+  if (view === 'table') {
+    if (needToggle) {
+      foot += '<div class="rt-toggle" role="button" tabindex="0" onclick="toggleRecordExpand()" ' +
+        'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();toggleRecordExpand()}">' +
+        (expanded ? '收起' : '展开全部 ' + allRecords.length + ' 条') +
+        '<span class="rt-toggle-arrow' + (expanded ? ' is-up' : '') + '">⌄</span></div>';
+    }
+    if (hasMore) {
+      foot += '<div class="record-load-more" onclick="loadMoreRecords()">加载更多...</div>';
+    }
+  }
 
   return '<div id="recordCard" class="record-card">' + head + body + foot + '</div>';
 }
 
-// ── 表格：按月分组，行高 32px，操作收进 ⋯ ──
+// ── 表格：按月分组，行高 32px，点行即弹操作 ──
 // recs = 本页要显示的那些（被「最近 N 条」截断）；allRecords = 全部记录。
 // 两个参数是必需的：月份合计必须按**该月全部记录**算 ——
 // 早期版本只累加显示出来的那几条，被 limit 截断时标题会写一个偏小的假合计
@@ -477,7 +499,7 @@ function renderRecordTable(recs, allRecords) {
     if (key !== curKey) {
       flush();
       curKey = key;
-      curLabel = key.slice(0, 4) + '年' + parseInt(key.slice(5), 10) + '月';
+      curLabel = WHT.monthLabelOf(r.date);
     }
     if (!WHT.isOpenRecord(r)) shown++;
     buf.push(rtRow(r));
@@ -512,8 +534,10 @@ function rtRow(r) {
   var dateTxt = WHT.escapeHtml(String(r.date).slice(5)) + (wd ? ' ' + wd : '');
 
   var id = WHT.escapeHtml(r.id);
-  var aria = WHT.escapeHtml(r.date + ' ' + (dt.label || '') + ' ' + txt);
+  var aria = WHT.escapeHtml(r.date + ' ' + (dt.label || '') + ' ' + txt) + '，点击查看详情与修改';
 
+  // 行尾不再放「⋯」—— 点整行即弹出「详情 + 修改/删除」合并弹窗，
+  // 少一次点击，也把那一列宽度还给内容。
   return '<div class="rt-row" role="button" tabindex="0" aria-label="' + aria + '" ' +
       'onclick="openRecordDetail(\'' + id + '\')" ' +
       // 键盘可达：role=button + tabindex 只让它可聚焦，不按 Enter 是不会响应的
@@ -523,8 +547,6 @@ function rtRow(r) {
       '<span class="rt-time">' + (r.startTime ? WHT.escapeHtml(r.startTime) : '—') + '</span>' +
       '<span class="rt-time">' + (open ? '—' : (r.endTime ? WHT.escapeHtml(r.endTime) : '—')) + '</span>' +
       '<span class="rt-hours ' + cls + '">' + txt + '</span>' +
-      '<button class="rt-more" aria-label="更多操作" ' +
-        'onclick="event.stopPropagation();openRecordMenu(\'' + id + '\')">⋯</button>' +
     '</div>';
 }
 
@@ -539,10 +561,14 @@ function renderRecordChart(allRecords) {
   var byDate = {};
   allRecords.forEach(function(r) { byDate[r.date] = r; });
 
+  // 窗口偏移：0 = 最近一期（最靠右），1 = 往前一期，以此类推。
+  // 一期 = CHART_DAYS 天，正好一屏，翻页时整屏替换、不会出现半截。
+  // 读取必须走 currentChartShift()：内存态在 reload 后会丢，要能回退到设置。
+  var shift = currentChartShift();
   var days = [];
   for (var i = CHART_DAYS - 1; i >= 0; i--) {
     var d = new Date();
-    d.setDate(d.getDate() - i);
+    d.setDate(d.getDate() - i - shift * CHART_DAYS);
     var ds = WHT.localDateStr(d);
     var rec = byDate[ds] || null;
     var v = null;
@@ -560,10 +586,18 @@ function renderRecordChart(allRecords) {
   var vals = [];
   days.forEach(function(x) { if (x.v !== null) vals.push(x.v); });
   if (!vals.length) {
-    // 有记录但都不在 30 天窗口内时，卡片标题写着「最近记录 (N条)」而这里说「还没有记录」，
+    var rangeTxt = days[0].date.slice(5) + ' — ' + days[days.length - 1].date.slice(5);
+    if (shift > 0) {
+      // 翻到的这一期是空的 → 给「回到最近」，别让人以为数据丢了
+      return '<div class="rc-empty">' + rangeTxt + '<br><span>这段时间没有记录</span></div>' +
+             chartNavHtml(rangeTxt, false) +
+             '<div class="rc-back" role="button" tabindex="0" onclick="chartBackToLatest()">回到最近一期</div>';
+    }
+    // 有记录但都不在窗口内时，卡片标题写着「最近记录 (N条)」而这里说「还没有记录」，
     // 两句放一起会自相矛盾 → 点明原因并指路
     return '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天没有记录' +
-           (allRecords.length ? '<br><span>更早的记录请切回「表格」查看</span>' : '') + '</div>';
+           (allRecords.length ? '<br><span>更早的记录可点上方「‹」回看</span>' : '') + '</div>' +
+           chartNavHtml(rangeTxt, true);
   }
 
   var top = Math.max(std, Math.max.apply(null, vals));
@@ -632,11 +666,53 @@ function renderRecordChart(allRecords) {
   var summary = '平均 <b>' + (sum / vals.length).toFixed(1) + 'h</b> · 合计 <b>' + sum.toFixed(1) + 'h</b>' +
                 (over ? ' · 加班 <b>' + over + '</b> 天' : '');
 
+  var rangeTxt2 = days[0].date.slice(5) + ' — ' + days[days.length - 1].date.slice(5);
   return '<div class="rc-wrap">' +
+      chartNavHtml(rangeTxt2, shift === 0) +
       '<svg class="rc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
-        'aria-label="最近 ' + CHART_DAYS + ' 天工时折线图，共 ' + vals.length + ' 天有记录">' + s + '</svg>' +
+        'aria-label="' + rangeTxt2 + ' 工时折线图，共 ' + vals.length + ' 天有记录">' + s + '</svg>' +
       '<div class="rc-summary">' + summary + '</div>' +
     '</div>';
+}
+
+// 图表顶部：‹ 上一期 ｜ 当前范围 ｜ 下一期 ›
+// atLatest 时「›」置灰不可点 —— 已经在最新一期，没有更近的可看
+function chartNavHtml(rangeTxt, atLatest) {
+  return '<div class="rc-nav">' +
+      '<button class="rc-nav-btn" aria-label="往前看 ' + CHART_DAYS + ' 天" onclick="chartShift(1)">‹</button>' +
+      '<span class="rc-nav-range">' + WHT.escapeHtml(rangeTxt) + '</span>' +
+      '<button class="rc-nav-btn' + (atLatest ? ' is-off' : '') + '" aria-label="往后看 ' + CHART_DAYS + ' 天"' +
+        (atLatest ? ' disabled' : ' onclick="chartShift(-1)"') + '>›</button>' +
+    '</div>';
+}
+
+// 当前图表窗口偏移。内存态优先，其次读设置 ——
+// reload 后 st 会被重置，只读 st 会导致「翻页状态存了却没用」。
+function currentChartShift() {
+  var v = (st.chartShift !== undefined) ? st.chartShift : WHT.getUserSettings().chartShift;
+  return Math.max(0, parseInt(v, 10) || 0);
+}
+
+// 往前("1")/往后("-1")翻一期。下界钉在 0（最新一期），不允许翻到未来。
+function chartShift(dir) {
+  WHT.haptic('light');
+  var s = WHT.getUserSettings();
+  var cur = currentChartShift();
+  var next = Math.max(0, cur + dir);
+  if (next === cur) return;             // 已在最新一期，点「›」不做事
+  st.chartShift = next;
+  s.chartShift = next;
+  WHT.saveUserSettings(s);
+  WHT.renderCurrentTab(true);
+}
+
+function chartBackToLatest() {
+  WHT.haptic('medium');
+  st.chartShift = 0;
+  var s = WHT.getUserSettings();
+  s.chartShift = 0;
+  WHT.saveUserSettings(s);
+  WHT.renderCurrentTab(true);
 }
 
 // ── 视图切换（记住选择，下次打开还在同一视图） ──
@@ -649,8 +725,10 @@ function setRecordView(v) {
   WHT.renderCurrentTab(true);
 }
 
-// 只读详情：表格行与图表数据点共用。
-// 刻意不放「修改」——用户要求「看图表时不修改」，而修改统一走表格行的 ⋯ 菜单。
+// 记录弹窗。表格与图表共用，**按视图决定是否给操作按钮**：
+//   · 表格（明细管理）→ 详情 + 修改 / 删除 / 关闭
+//   · 图表（趋势洞察）→ 只有详情 + 关闭，保持「看图表时不修改」
+// 这样表格行尾就不需要单独的 ⋯ 菜单了 —— 点行即达，少一次点击。
 function openRecordDetail(id) {
   var rec = WHT.getUserRecords().find(function(x) { return x.id === id; });
   if (!rec) return;
@@ -670,6 +748,15 @@ function openRecordDetail(id) {
   var dObj = new Date(rec.date + 'T00:00:00');
   var title = isNaN(dObj.getTime()) ? WHT.escapeHtml(String(rec.date)) : WHT.formatDate(rec.date);
 
+  var editable = (st.recordView || WHT.getUserSettings().recordView || 'table') === 'table';
+  var idEsc = WHT.escapeHtml(rec.id);
+  var actions = editable
+    ? '<div class="rs-actions">' +
+        '<button class="btn rs-act" onclick="closeRecordSheet();editRecord(\'' + idEsc + '\')">修改</button>' +
+        '<button class="btn rs-act rs-danger" onclick="confirmDeleteRecord(\'' + idEsc + '\')">删除</button>' +
+      '</div>'
+    : '';
+
   var sheet = document.getElementById('recordSheetBody');
   if (!sheet) return;
   sheet.innerHTML = '<div class="modal-handle"></div>' +
@@ -680,34 +767,28 @@ function openRecordDetail(id) {
       row('下班', open ? '—' : (rec.endTime ? WHT.escapeHtml(rec.endTime) : '—')) +
       row('工时', hoursTxt) +
     '</div>' +
+    actions +
     '<button class="btn w-full mt-12" onclick="closeRecordSheet()">关闭</button>';
   document.getElementById('recordSheet').classList.add('active');
 }
 
-// 行内 ⋯ 菜单：修改 / 删除
-function openRecordMenu(id) {
-  var rec = WHT.getUserRecords().find(function(x) { return x.id === id; });
-  if (!rec) return;
+// 展开 / 收起表格。状态写进 settings，下次打开保持。
+function toggleRecordExpand() {
   WHT.haptic('light');
-  var open = WHT.isOpenRecord(rec);
-  var dObj2 = new Date(rec.date + 'T00:00:00');
-  var dateTxt2 = isNaN(dObj2.getTime()) ? WHT.escapeHtml(String(rec.date)) : WHT.formatDate(rec.date);
-  var title = dateTxt2 +
-    (rec.startTime ? ' · ' + WHT.escapeHtml(rec.startTime) +
-      (open ? ' 起' : (rec.endTime ? ' - ' + WHT.escapeHtml(rec.endTime) : '')) : '');
-
-  var sheet = document.getElementById('recordSheetBody');
-  if (!sheet) return;
-  sheet.innerHTML = '<div class="modal-handle"></div>' +
-    '<div class="modal-title">' + title + '</div>' +
-    '<button class="btn w-full" onclick="closeRecordSheet();editRecord(\'' + WHT.escapeHtml(rec.id) + '\')">修改</button>' +
-    '<button class="btn w-full mt-12 rs-danger" onclick="confirmDeleteRecord(\'' + WHT.escapeHtml(rec.id) + '\')">删除</button>' +
-    '<button class="btn w-full mt-12" onclick="closeRecordSheet()">取消</button>';
-  document.getElementById('recordSheet').classList.add('active');
+  var s = WHT.getUserSettings();
+  var cur = (st.recordExpanded !== undefined) ? st.recordExpanded : !!s.recordExpanded;
+  var next = !cur;
+  st.recordExpanded = next;
+  s.recordExpanded = next;
+  WHT.saveUserSettings(s);
+  WHT.renderCurrentTab(true);
 }
 
+// （原「行内 ⋯ 菜单」已在 v0.16.0 合并进 openRecordDetail —— 点行即达，
+//   不必先点 ⋯ 再选操作。openRecordMenu 已删除。）
+
 // 删除前二次确认。原来列表里的「删除」是点了就删、没有确认，
-// 收进 ⋯ 菜单后多了一层防护，但删除不可逆，仍然该问一句。
+// 现在点行直达弹窗，删除按钮就排在「关闭」旁边，更需要这道确认。
 function confirmDeleteRecord(id) {
   closeRecordSheet();
   WHT.showConfirm('确认删除', '删除后无法恢复，确定要删除这条记录吗？', function() {
@@ -718,6 +799,37 @@ function confirmDeleteRecord(id) {
 function closeRecordSheet() {
   var el = document.getElementById('recordSheet');
   if (el) el.classList.remove('active');
+}
+
+// ── 图表横向拖动翻页 ──────────────────────────────────────────────────────
+// 用事件委托挂在 pageContent 上（每次重绘都会换 DOM，绑具体节点会失效）。
+// 关键是与「页面上下滚动」共存：只有**横向意图明显**时才拦截 ——
+// 否则用户想上下滚页面，却被图表吃掉手势，体验会很糟。
+function bindChartSwipe() {
+  var host = document.getElementById('pageContent');
+  if (!host || host._chartSwipeBound) return;
+  host._chartSwipeBound = true;
+
+  var sx = 0, sy = 0, tracking = false;
+
+  host.addEventListener('touchstart', function(e) {
+    // 只有落在图表区域内才跟踪
+    if (!e.target.closest || !e.target.closest('.rc-wrap')) { tracking = false; return; }
+    var t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; tracking = true;
+  }, { passive: true });
+
+  host.addEventListener('touchend', function(e) {
+    if (!tracking) return;
+    tracking = false;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    // 横向位移是纵向的 1.5 倍以上、且超过 50px → 判为翻页意图，否则放行给页面滚动
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      // 手指右滑 = 往回看（更早），左滑 = 往近看
+      chartShift(dx > 0 ? 1 : -1);
+    }
+  }, { passive: true });
 }
 
 
@@ -814,6 +926,12 @@ function toggleNote() {
 }
 
 function loadMoreRecords() {
+  // 「加载更多」只在展开状态下渲染，但保险起见仍确保展开态，
+  // 否则点了没反应（折叠时 limit 恒为 COLLAPSED_ROWS）。
+  st.recordExpanded = true;
+  var s = WHT.getUserSettings();
+  s.recordExpanded = true;
+  WHT.saveUserSettings(s);
   st.recordLimit = (st.recordLimit || 10) + 10;
   WHT.renderCurrentTab(true);
 }
@@ -1020,8 +1138,10 @@ function deleteCompTime(id) {
   // 最近记录双视图
   WHT.setRecordView = setRecordView;
   WHT.openRecordDetail = openRecordDetail;
-  WHT.openRecordMenu = openRecordMenu;
+  WHT.toggleRecordExpand = toggleRecordExpand;
   WHT.closeRecordSheet = closeRecordSheet;
   WHT.confirmDeleteRecord = confirmDeleteRecord;
+  WHT.chartShift = chartShift;
+  WHT.chartBackToLatest = chartBackToLatest;
 
 })();

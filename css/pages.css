@@ -941,18 +941,54 @@
   font-variant-numeric: tabular-nums;
 }
 .rt-hours.is-over, .rt-hours.is-live { color: var(--color-warning); }
-.rt-more {
-  flex: 0 0 auto; width: 28px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 6px; font-size: 15px; line-height: 1;
-  color: var(--text-muted); background: transparent;
+
+/* 展开 / 收起（折叠态显示 3 条，一屏能看完） */
+.rt-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 9px 14px;
+  font-size: 12px; font-weight: 500;
+  color: var(--color-accent-text);
+  border-top: 0.5px solid var(--border-card);
+  cursor: pointer;
 }
-.rt-more:active { background: var(--bg-input); color: var(--text-primary); }
+.rt-toggle:active { background: var(--bg-raised); }
+.rt-toggle-arrow {
+  display: inline-block; font-size: 13px; line-height: 1;
+  transition: transform 0.22s ease;
+}
+.rt-toggle-arrow.is-up { transform: rotate(180deg); }
 
 /* ══ 图表视图 ══
  * 休息日不画点、折线断开（画成 0h 会像「缺勤」，实际是正常休息）；
- * 标准工时用灰虚线做参照，超出的点转琥珀色。 */
+ * 标准工时用灰虚线做参照，超出的点转琥珀色。
+ * 顶部有 ‹ › 可翻看更早的 30 天，也支持横向拖动。 */
 .rc-wrap { padding: var(--space-3) var(--space-3) var(--space-2); }
+.rc-nav {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.rc-nav-btn {
+  width: 28px; height: 28px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; font-size: 16px; line-height: 1;
+  color: var(--text-primary); background: var(--bg-raised);
+  cursor: pointer; transition: background var(--transition-fast);
+}
+.rc-nav-btn:active { background: var(--bg-input); }
+.rc-nav-btn.is-off, .rc-nav-btn[disabled] {
+  color: var(--text-disabled); background: transparent; cursor: default;
+}
+.rc-nav-range {
+  flex: 0 0 auto; padding: 5px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 500; color: var(--text-secondary);
+  background: var(--bg-raised);
+  font-variant-numeric: tabular-nums;
+}
+.rc-back {
+  margin-top: var(--space-2); padding: 8px;
+  text-align: center; font-size: 12px; font-weight: 500;
+  color: var(--color-accent-text); cursor: pointer;
+}
 .rc-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .rc-grid { stroke: var(--border-card); stroke-width: 0.5; }
 .rc-grid--std { stroke: var(--text-muted); stroke-width: 0.5; stroke-dasharray: 4 3; }
@@ -992,6 +1028,13 @@
 .rs-row > b { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .rs-live { color: var(--color-warning); }
 .rs-danger { color: var(--color-danger); }
+
+/* 记录弹窗的操作按钮：修改 / 删除 并排（表格视图才有；图表视图只读） */
+.rs-actions {
+  display: flex; gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.rs-act { flex: 1 1 0; }
 /* 调休管理 */
 .comp-section { grid-column: span 4; }
 .comp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-bottom: var(--space-2); }

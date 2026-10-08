@@ -29,6 +29,15 @@
            String(d.getDate()).padStart(2, '0');
   }
 
+  // 从 'YYYY-MM-DD' 取「YYYY年M月」标签。纯字符串运算 —— 不走 Date，
+  // 避免时区/非法值把它算成 NaN（最近记录的按月分组用它做小标题）。
+  // 解析不出月份时退化为原串，不要显示 NaN。
+  function monthLabelOf(dateStr) {
+    var m = /^(\d{4})-(\d{2})/.exec(String(dateStr || ''));
+    if (!m) return String(dateStr || '');
+    return m[1] + '年' + parseInt(m[2], 10) + '月';
+  }
+
   // 「这一班还没结束」的判定 —— 全项目唯一入口（业务日、实时工时、日历格都用它）。
   // 兼容两种历史写法：status === 'working'，或有 startTime 但没 endTime。
   function isOpenRecord(rec) {
@@ -994,6 +1003,7 @@
   WHT.startPageLiveTimer = startPageLiveTimer;
   WHT.stopPageLiveTimer = stopPageLiveTimer;
   WHT.localDateStr = localDateStr;
+  WHT.monthLabelOf = monthLabelOf;
   WHT.naturalToday = naturalToday;
   WHT.isOpenRecord = isOpenRecord;
   WHT.openRecordOf = openRecordOf;
