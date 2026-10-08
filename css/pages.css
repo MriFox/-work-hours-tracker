@@ -871,14 +871,6 @@
 /* 记录分区标题 & 列表 */
 .section-header { grid-column: span 4; display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); padding-top: var(--space-4); }
 .section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.record-toggle-btn {
-  font-size: 12px; font-weight: 500; color: var(--text-muted);
-  background: var(--bg-card); border: none; cursor: pointer;
-  padding: 6px 12px; border-radius: var(--radius-sm);
-  box-shadow: var(--neu-sm);
-  transition: all var(--transition-fast);
-}
-.record-toggle-btn:hover { color: var(--text-primary); box-shadow: var(--neu-md); }
 .record-load-more {
   display: flex; align-items: center; justify-content: center;
   width: 100%; padding: 14px;
@@ -900,28 +892,106 @@
 }
 .record-card-header .section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
 
-/* 记录列表体 */
-.record-list-body { }
-.record-item {
+/* ── 视图切换：表格 / 图表分段控件 ── */
+.view-seg {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px; border-radius: 8px;
+  background: var(--bg-input);
+}
+.view-seg-btn {
+  padding: 4px 12px; border-radius: 6px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary); background: transparent;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.view-seg-btn.is-on {
+  background: var(--bg-card); color: var(--text-primary);
+  box-shadow: var(--neu-sm);
+}
+
+/* ══ 表格视图 ══
+ * 行高 32px（原来列表卡片是 62px），一行一记录；类型改行首 3px 竖条不占列宽；
+ * 操作收进行尾 ⋯ —— 430px 窄屏放不下「修改+删除」两个可见按钮。 */
+.rt-month {
   display: flex; align-items: center; justify-content: space-between;
-  padding: var(--space-4) var(--space-4);
-  border-bottom: 1px solid var(--border-glass);
+  padding: 7px 14px 5px;
+  font-size: 11px; color: var(--text-muted);
+  background: var(--bg-raised);
+}
+.rt-month b { font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.rt-row {
+  display: flex; align-items: center; gap: 6px;
+  height: 32px; padding-right: 8px;
+  border-bottom: 0.5px solid var(--border-card);
+  font-size: 12px; cursor: pointer;
   transition: background var(--transition-fast);
 }
-.record-item:last-child { border-bottom: none; }
-.record-item:hover { background: var(--bg-raised); }
-.record-item-main { flex: 1; min-width: 0; }
-.record-item-date { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
-.record-item-time { font-size: 14px; font-weight: 500; }
-.record-item-time .hours { color: var(--color-accent); font-weight: 600; }
-.badge {
-  display: inline-block; padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-size: 10px; font-weight: 600;
+.rt-row:last-child { border-bottom: none; }
+.rt-row:hover { background: var(--bg-raised); }
+.rt-row:active { background: var(--bg-input); }
+.rt-bar { flex: 0 0 3px; align-self: stretch; background: transparent; }
+.rt-bar.is-rest    { background: var(--neutral-300); }
+.rt-bar.is-holiday { background: var(--color-warning); }
+.rt-bar.is-workday { background: var(--color-success); }
+.rt-date { flex: 0 0 62px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.rt-time { flex: 0 0 44px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.rt-hours {
+  flex: 1 1 auto; text-align: right;
+  font-weight: 600; color: var(--color-accent-text);
+  font-variant-numeric: tabular-nums;
 }
-.badge-holiday { background: rgba(192, 149, 92, 0.12); color: var(--color-warning); }
-.badge-weekend { background: rgba(139, 138, 196, 0.12); color: var(--color-purple); }
-.record-item-actions { display: flex; gap: var(--space-2); margin-left: var(--space-3); flex-shrink: 0; }
+.rt-hours.is-over, .rt-hours.is-live { color: var(--color-warning); }
+.rt-more {
+  flex: 0 0 auto; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 15px; line-height: 1;
+  color: var(--text-muted); background: transparent;
+}
+.rt-more:active { background: var(--bg-input); color: var(--text-primary); }
+
+/* ══ 图表视图 ══
+ * 休息日不画点、折线断开（画成 0h 会像「缺勤」，实际是正常休息）；
+ * 标准工时用灰虚线做参照，超出的点转琥珀色。 */
+.rc-wrap { padding: var(--space-3) var(--space-3) var(--space-2); }
+.rc-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.rc-grid { stroke: var(--border-card); stroke-width: 0.5; }
+.rc-grid--std { stroke: var(--text-muted); stroke-width: 0.5; stroke-dasharray: 4 3; }
+.rc-axis { fill: var(--text-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+.rc-area { fill: var(--color-accent); fill-opacity: 0.10; stroke: none; }
+.rc-line {
+  fill: none; stroke: var(--color-accent); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.rc-dot { fill: var(--color-accent); }
+.rc-dot.is-over { fill: var(--color-warning); }
+.rc-summary {
+  margin-top: var(--space-2); text-align: center;
+  font-size: 11px; color: var(--text-muted);
+}
+.rc-summary b { font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.rc-empty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center; font-size: 13px; color: var(--text-muted);
+}
+
+/* ══ 只读详情 / ⋯ 菜单（共用 #recordSheet 独立浮层）══ */
+.rs-box {
+  margin-top: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  padding: 0 var(--space-3);
+}
+.rs-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 0.5px solid var(--border-card);
+  font-size: 13px;
+}
+.rs-row:last-child { border-bottom: none; }
+.rs-row > span { color: var(--text-muted); }
+.rs-row > b { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.rs-live { color: var(--color-warning); }
+.rs-danger { color: var(--color-danger); }
 /* 调休管理 */
 .comp-section { grid-column: span 4; }
 .comp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-bottom: var(--space-2); }
@@ -1297,8 +1367,6 @@
 .calendar-day-holiday-badge.is-work { background: #34C759; }
 .week-day .holiday-badge.holiday-badge-work { background: #34C759; }
 
-.badge-workday { background: rgba(52,199,89,0.14); color: #1E8E3E; }
-[data-theme="dark"] .badge-workday { background: rgba(52,199,89,0.20); color: #5BD97B; }
 
 .daytype-picker {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);

@@ -134,6 +134,13 @@
   </div>
 </div>
 
+<!-- 记录操作菜单 / 只读详情
+     刻意用独立容器，不复用 #userModal —— 后者的 .modal-sheet 会被
+     editCommonSlot / editQuarter 等函数整体重写，共用会互相覆盖。 -->
+<div class="modal-overlay" id="recordSheet" onclick="if(event.target===this)closeRecordSheet()">
+  <div class="modal-sheet" id="recordSheetBody"></div>
+</div>
+
 <!-- CONFIRM -->
 <div class="confirm-overlay" id="confirmDialog">
   <div class="confirm-box">

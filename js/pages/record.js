@@ -361,28 +361,10 @@ function renderRecordPage(c) {
       '</div>';
   }
 
-  // ── 最近记录 ──
+  // ── 最近记录：表格 / 图表双视图 ──
+  // 表格 = 明细管理（行内 ⋯ 可改可删）；图表 = 趋势洞察（只读，点某天看详情）
   var allRecords = r.slice().sort(function(a,b) { return b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime); });
-  var rr = allRecords.slice(0, st.recordLimit || 10);
-  var hasMore = allRecords.length > (st.recordLimit || 10);
-
-  var recentHtml = '';
-  if (rr.length > 0) {
-    recentHtml =
-      '<div id="recordCard" class="record-card">' +
-        '<div class="record-card-header">' +
-          '<div class="section-title">最近记录 (' + allRecords.length + '条)</div>' +
-          (rr.length > 3 ? '<button id="recordToggleBtn" class="record-toggle-btn" onclick="toggleRecordList()">▶ 展开</button>' : '') +
-        '</div>' +
-        '<div class="record-list-body" id="recordList">' +
-          rr.slice(0, 3).map(renderRecordItem).join('') +
-        '</div>' +
-        '<div class="record-list-body hidden" id="recordListHidden">' +
-          rr.slice(3).map(renderRecordItem).join('') +
-        '</div>' +
-        (hasMore ? '<div class="record-load-more" onclick="loadMoreRecords()">加载更多...</div>' : '') +
-      '</div>';
-  }
+  var recentHtml = renderRecordSection(allRecords);
 
   // ── 今日卡：把「实时计时」与「今天还需完成多少」合成一张 ──
   var pace = WHT.monthPace(now.getFullYear(), now.getMonth());
@@ -426,31 +408,283 @@ function renderRecordPage(c) {
   }
 }
 
-// ── 展示记录项（过滤掉 working 状态只在手动补录和最近列表中隐藏） ──
-function renderRecordItem(r) {
-  var b = [];
-  var dt = WHT.getDayType(r.date);
-  if (dt.type === 'holiday') b.push('<span class="badge badge-holiday">' + (dt.forced ? '节假日' : '法定节假日') + '</span>');
-  else if (dt.type === 'workday') b.push('<span class="badge badge-workday">调休上班</span>');
-  else if (dt.type === 'rest') b.push('<span class="badge badge-weekend">休息</span>');
-  else if (dt.type === 'weekend') b.push('<span class="badge badge-weekend">周末</span>');
-  var isWorking = r.status === 'working' || (!r.endTime && r.startTime);
-  var timeDisplay = isWorking
-    ? WHT.escapeHtml(r.startTime) + ' - <span style="color:var(--color-warning);font-weight:600">进行中</span>'
-    : WHT.escapeHtml(r.startTime) + ' - ' + WHT.escapeHtml(r.endTime) + ' <span class="hours">' + r.hours.toFixed(1) + 'h</span>';
-  return '<div class="record-item">' +
-    '<div class="record-item-main">' +
-      '<div class="record-item-date">' + WHT.formatDate(r.date) + '</div>' +
-      '<div class="record-item-time">' + timeDisplay + '</div>' +
-      (b.length ? '<div style="margin-top:2px">' + b.join('') + '</div>' : '') +
-      (r.note ? '<div style="font-size:11px;color:var(--text-muted);margin-top:1px">' + WHT.escapeHtml(r.note) + '</div>' : '') +
-    '</div>' +
-    '<div class="record-item-actions">' +
-      '<button class="btn-sm" onclick="editRecord(\'' + WHT.escapeHtml(r.id) + '\')">修改</button>' +
-      '<button class="btn-sm btn-sm-danger" onclick="deleteRecord(\'' + WHT.escapeHtml(r.id) + '\')">删除</button>' +
-    '</div>' +
-  '</div>';
+// ══════════ 最近记录：表格 / 图表双视图 ══════════
+// 分工：表格 = 明细管理（行内 ⋯ 可改可删）；图表 = 趋势洞察（只读，点某天看详情）
+//
+// 图表窗口刻意取「最近 30 个自然日」，与表格的「最近 N 条」不一致：
+// 表格是查某天的明细（10 条够用），图表是看走向（点越多趋势越准），职责本就不同。
+var CHART_DAYS = 30;
+
+function renderRecordSection(allRecords) {
+  if (!allRecords.length) return '';
+  var view = st.recordView || WHT.getUserSettings().recordView || 'table';
+  var limit = st.recordLimit || 10;
+  var hasMore = allRecords.length > limit;
+
+  var head = '<div class="record-card-header">' +
+      '<div class="section-title">最近记录 (' + allRecords.length + '条)</div>' +
+      '<div class="view-seg" role="tablist" aria-label="切换视图">' +
+        '<button class="view-seg-btn' + (view === 'table' ? ' is-on' : '') + '" role="tab" ' +
+          'aria-selected="' + (view === 'table') + '" onclick="setRecordView(\'table\')">表格</button>' +
+        '<button class="view-seg-btn' + (view === 'chart' ? ' is-on' : '') + '" role="tab" ' +
+          'aria-selected="' + (view === 'chart') + '" onclick="setRecordView(\'chart\')">图表</button>' +
+      '</div>' +
+    '</div>';
+
+  var body = (view === 'chart')
+    ? renderRecordChart(allRecords)
+    : '<div class="rt-wrap">' + renderRecordTable(allRecords.slice(0, limit)) + '</div>';
+
+  var foot = (view === 'table' && hasMore)
+    ? '<div class="record-load-more" onclick="loadMoreRecords()">加载更多...</div>'
+    : '';
+
+  return '<div id="recordCard" class="record-card">' + head + body + foot + '</div>';
 }
+
+// ── 表格：按月分组，行高 32px，操作收进 ⋯ ──
+function renderRecordTable(recs) {
+  if (!recs.length) return '';
+  var out = '', curKey = '', curLabel = '', sum = 0, buf = [];
+
+  function flush() {
+    if (!buf.length) return;
+    out += '<div class="rt-month"><span>' + curLabel + '</span><b>合计 ' + sum.toFixed(1) + 'h</b></div>' +
+           '<div class="rt-rows">' + buf.join('') + '</div>';
+    buf = []; sum = 0;
+  }
+
+  recs.forEach(function(r) {
+    var key = r.date.slice(0, 7);
+    if (key !== curKey) {
+      flush();
+      curKey = key;
+      curLabel = key.slice(0, 4) + '年' + parseInt(key.slice(5), 10) + '月';
+    }
+    // 合计按记录原始工时累加（含节假日上班时长）—— 表格是明细视图，直观优先
+    if (!WHT.isOpenRecord(r)) sum += r.hours;
+    buf.push(rtRow(r));
+  });
+  flush();
+  return out;
+}
+
+function rtRow(r) {
+  var dt = WHT.getDayType(r.date);
+  // 类型改用行首 3px 竖条，不占列宽：灰=休息/周末，橙=节假日，绿=调休上班
+  var bar = dt.type === 'holiday' ? 'is-holiday'
+          : dt.type === 'workday' ? 'is-workday'
+          : (dt.type === 'rest' || dt.type === 'weekend') ? 'is-rest' : '';
+
+  var open = WHT.isOpenRecord(r);
+  var live = WHT.liveHoursOf(r);
+  var txt, cls = '';
+  if (open) {
+    txt = (live === null) ? '进行中' : live.toFixed(1) + 'h';
+    cls = 'is-live';
+  } else {
+    txt = r.hours.toFixed(1) + 'h';
+    if (r.hours > (WHT.getUserSettings().standardHours || 8)) cls = 'is-over';
+  }
+
+  var wd = ['日','一','二','三','四','五','六'][new Date(r.date + 'T00:00:00').getDay()];
+  var id = WHT.escapeHtml(r.id);
+  var aria = WHT.escapeHtml(r.date + ' ' + (dt.label || '') + ' ' + txt);
+
+  return '<div class="rt-row" role="button" tabindex="0" aria-label="' + aria + '" ' +
+      'onclick="openRecordDetail(\'' + id + '\')">' +
+      '<i class="rt-bar ' + bar + '" aria-hidden="true"></i>' +
+      '<span class="rt-date">' + r.date.slice(5) + ' ' + wd + '</span>' +
+      '<span class="rt-time">' + (r.startTime ? WHT.escapeHtml(r.startTime) : '—') + '</span>' +
+      '<span class="rt-time">' + (open ? '—' : (r.endTime ? WHT.escapeHtml(r.endTime) : '—')) + '</span>' +
+      '<span class="rt-hours ' + cls + '">' + txt + '</span>' +
+      '<button class="rt-more" aria-label="更多操作" ' +
+        'onclick="event.stopPropagation();openRecordMenu(\'' + id + '\')">⋯</button>' +
+    '</div>';
+}
+
+// ── 图表：最近 30 天折线（手写 SVG，与全站其它图形同源，不引入图表库） ──
+// 两个刻意为之的设计：
+//  ① 休息日 / 无记录日 **不画点、折线在该处断开** —— 若画成 0h，
+//     视觉上像「缺勤/罢工」，而实际是正常休息；留空才是诚实的表达。
+//  ② 标准工时画一条灰虚线作参照，超出的点用琥珀色标出。
+function renderRecordChart(allRecords) {
+  var std = WHT.getUserSettings().standardHours || 8;
+  var todayStr = WHT.today();
+  var byDate = {};
+  allRecords.forEach(function(r) { byDate[r.date] = r; });
+
+  var days = [];
+  for (var i = CHART_DAYS - 1; i >= 0; i--) {
+    var d = new Date();
+    d.setDate(d.getDate() - i);
+    var ds = WHT.localDateStr(d);
+    var rec = byDate[ds] || null;
+    var v = null;
+    if (rec) {
+      if (WHT.isOpenRecord(rec)) {
+        var lv = WHT.liveHoursOf(rec);
+        if (lv !== null) v = lv;
+      } else {
+        v = rec.hours;
+      }
+    }
+    days.push({ date: ds, v: v, rec: rec, isToday: ds === todayStr });
+  }
+
+  var vals = [];
+  days.forEach(function(x) { if (x.v !== null) vals.push(x.v); });
+  if (!vals.length) {
+    return '<div class="rc-empty">最近 ' + CHART_DAYS + ' 天还没有记录</div>';
+  }
+
+  var top = Math.max(std, Math.max.apply(null, vals));
+  top = Math.ceil(top / 2) * 2 + 2;                 // 向上取偶数 + 留余量，刻度好看
+
+  var W = 360, H = 158, padL = 30, padR = 14, padT = 16, padB = 26;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var n = days.length, yBase = padT + plotH;
+
+  function xAt(i) { return padL + plotW * i / (n - 1); }
+  function yAt(v) { return padT + plotH * (1 - Math.min(v, top) / top); }
+
+  // 连续段：休息日会把折线切成多段，逐段画
+  var segs = [], cur = [];
+  days.forEach(function(d, i) {
+    if (d.v === null) { if (cur.length) { segs.push(cur); cur = []; } }
+    else cur.push(i);
+  });
+  if (cur.length) segs.push(cur);
+
+  var s = '';
+  // 横向网格 + Y 轴刻度（0 / 标准工时 / 顶）
+  [0, std, top].forEach(function(v) {
+    var y = yAt(v).toFixed(1);
+    s += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" ' +
+         'class="rc-grid' + (v === std ? ' rc-grid--std' : '') + '"/>';
+    s += '<text x="' + (padL - 6) + '" y="' + y + '" class="rc-axis" text-anchor="end" ' +
+         'dominant-baseline="central">' + v.toFixed(0) + 'h</text>';
+  });
+
+  // 面积 + 折线
+  segs.forEach(function(seg) {
+    if (seg.length < 2) return;
+    var pts = seg.map(function(i) { return xAt(i).toFixed(1) + ',' + yAt(days[i].v).toFixed(1); });
+    s += '<path d="M' + pts[0] + ' L' + pts.slice(1).join(' L') +
+         ' L' + xAt(seg[seg.length - 1]).toFixed(1) + ',' + yBase +
+         ' L' + xAt(seg[0]).toFixed(1) + ',' + yBase + ' Z" class="rc-area"/>';
+    s += '<polyline points="' + pts.join(' ') + '" class="rc-line"/>';
+  });
+
+  // 数据点；超出标准工时的用琥珀色
+  days.forEach(function(d, i) {
+    if (d.v === null) return;
+    s += '<circle cx="' + xAt(i).toFixed(1) + '" cy="' + yAt(d.v).toFixed(1) + '" r="3" ' +
+         'class="rc-dot' + (d.v > std ? ' is-over' : '') + '"/>';
+  });
+  // 透明点击区 —— 3px 的点手指点不中，这里铺满整列
+  var colW = plotW / (n - 1);
+  days.forEach(function(d, i) {
+    if (!d.rec) return;
+    var label = d.date + (d.v === null ? ' 进行中' : ' ' + d.v.toFixed(1) + 'h');
+    s += '<rect x="' + (xAt(i) - colW / 2).toFixed(1) + '" y="' + padT + '" width="' + colW.toFixed(1) +
+         '" height="' + plotH + '" fill="transparent" style="cursor:pointer" ' +
+         'onclick="openRecordDetail(\'' + WHT.escapeHtml(d.rec.id) + '\')">' +
+         '<title>' + WHT.escapeHtml(label) + '</title></rect>';
+  });
+  // X 轴：首 / 1/3 / 2/3 / 末，避免 30 个标签糊在一起
+  [0, Math.round((n - 1) / 3), Math.round((n - 1) * 2 / 3), n - 1].forEach(function(i) {
+    var anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+    s += '<text x="' + xAt(i).toFixed(1) + '" y="' + (H - 8) + '" class="rc-axis" ' +
+         'text-anchor="' + anchor + '">' + days[i].date.slice(5) + '</text>';
+  });
+
+  var sum = 0, over = 0;
+  vals.forEach(function(v) { sum += v; if (v > std) over++; });
+  var summary = '平均 <b>' + (sum / vals.length).toFixed(1) + 'h</b> · 合计 <b>' + sum.toFixed(1) + 'h</b>' +
+                (over ? ' · 加班 <b>' + over + '</b> 天' : '');
+
+  return '<div class="rc-wrap">' +
+      '<svg class="rc-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
+        'aria-label="最近 ' + CHART_DAYS + ' 天工时折线图，共 ' + vals.length + ' 天有记录">' + s + '</svg>' +
+      '<div class="rc-summary">' + summary + '</div>' +
+    '</div>';
+}
+
+// ── 视图切换（记住选择，下次打开还在同一视图） ──
+function setRecordView(v) {
+  WHT.haptic('light');
+  st.recordView = (v === 'chart') ? 'chart' : 'table';
+  var s = WHT.getUserSettings();
+  s.recordView = st.recordView;
+  WHT.saveUserSettings(s);
+  WHT.renderCurrentTab(true);
+}
+
+// 只读详情：表格行与图表数据点共用。
+// 刻意不放「修改」——用户要求「看图表时不修改」，而修改统一走表格行的 ⋯ 菜单。
+function openRecordDetail(id) {
+  var rec = WHT.getUserRecords().find(function(x) { return x.id === id; });
+  if (!rec) return;
+  WHT.haptic('light');
+  var dt = WHT.getDayType(rec.date);
+  var open = WHT.isOpenRecord(rec);
+  var live = WHT.liveHoursOf(rec);
+  var hoursTxt = open
+    ? (live === null ? '<span class="rs-live">进行中</span>'
+                     : '<span class="rs-live">' + live.toFixed(1) + 'h（计时中）</span>')
+    : rec.hours.toFixed(1) + 'h';
+
+  function row(k, v) { return '<div class="rs-row"><span>' + k + '</span><b>' + v + '</b></div>'; }
+
+  var sheet = document.getElementById('recordSheetBody');
+  if (!sheet) return;
+  sheet.innerHTML = '<div class="modal-handle"></div>' +
+    '<div class="modal-title">' + WHT.formatDate(rec.date) + '</div>' +
+    '<div class="rs-box">' +
+      row('日期类型', dt.label || '') +
+      row('上班', rec.startTime ? WHT.escapeHtml(rec.startTime) : '—') +
+      row('下班', open ? '—' : (rec.endTime ? WHT.escapeHtml(rec.endTime) : '—')) +
+      row('工时', hoursTxt) +
+    '</div>' +
+    '<button class="btn w-full mt-12" onclick="closeRecordSheet()">关闭</button>';
+  document.getElementById('recordSheet').classList.add('active');
+}
+
+// 行内 ⋯ 菜单：修改 / 删除
+function openRecordMenu(id) {
+  var rec = WHT.getUserRecords().find(function(x) { return x.id === id; });
+  if (!rec) return;
+  WHT.haptic('light');
+  var open = WHT.isOpenRecord(rec);
+  var title = WHT.formatDate(rec.date) +
+    (rec.startTime ? ' · ' + WHT.escapeHtml(rec.startTime) +
+      (open ? ' 起' : (rec.endTime ? ' - ' + WHT.escapeHtml(rec.endTime) : '')) : '');
+
+  var sheet = document.getElementById('recordSheetBody');
+  if (!sheet) return;
+  sheet.innerHTML = '<div class="modal-handle"></div>' +
+    '<div class="modal-title">' + title + '</div>' +
+    '<button class="btn w-full" onclick="closeRecordSheet();editRecord(\'' + WHT.escapeHtml(rec.id) + '\')">修改</button>' +
+    '<button class="btn w-full mt-12 rs-danger" onclick="confirmDeleteRecord(\'' + WHT.escapeHtml(rec.id) + '\')">删除</button>' +
+    '<button class="btn w-full mt-12" onclick="closeRecordSheet()">取消</button>';
+  document.getElementById('recordSheet').classList.add('active');
+}
+
+// 删除前二次确认。原来列表里的「删除」是点了就删、没有确认，
+// 收进 ⋯ 菜单后多了一层防护，但删除不可逆，仍然该问一句。
+function confirmDeleteRecord(id) {
+  closeRecordSheet();
+  WHT.showConfirm('确认删除', '删除后无法恢复，确定要删除这条记录吗？', function() {
+    deleteRecord(id);
+  });
+}
+
+function closeRecordSheet() {
+  var el = document.getElementById('recordSheet');
+  if (el) el.classList.remove('active');
+}
+
 
 // ── 快捷时段：直接打卡（一键填入上下班时间） ──
 function fillTimeSlotQuick(s, e) {
@@ -542,15 +776,6 @@ function toggleNote() {
   if (!s || !i) return;
   s.classList.toggle('hidden');
   i.textContent = s.classList.contains('hidden') ? '▶' : '▼';
-}
-
-function toggleRecordList() {
-  WHT.haptic('light');
-  var hidden = document.getElementById('recordListHidden');
-  var b = document.getElementById('recordToggleBtn');
-  if (!hidden || !b) return;
-  hidden.classList.toggle('hidden');
-  b.innerHTML = hidden.classList.contains('hidden') ? '▶ 展开' : '▼ 收起';
 }
 
 function loadMoreRecords() {
@@ -754,9 +979,14 @@ function deleteCompTime(id) {
   WHT.deleteCompTime = deleteCompTime;
   WHT.editCompTime = editCompTime;
   WHT.toggleNote = toggleNote;
-  WHT.toggleRecordList = toggleRecordList;
   WHT.loadMoreRecords = loadMoreRecords;
   WHT.autoEarnCompTime = autoEarnCompTime;
   WHT.onRecordDateChange = onRecordDateChange;
+  // 最近记录双视图
+  WHT.setRecordView = setRecordView;
+  WHT.openRecordDetail = openRecordDetail;
+  WHT.openRecordMenu = openRecordMenu;
+  WHT.closeRecordSheet = closeRecordSheet;
+  WHT.confirmDeleteRecord = confirmDeleteRecord;
 
 })();
