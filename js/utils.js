@@ -359,20 +359,11 @@
     var holidayHours = recs.filter(function(x) { return isHoliday(x.date); })
                            .reduce(function(a, x) { return a + x.hours; }, 0);
     var done = recs.reduce(function(a, x) { return a + x.hours; }, 0) - holidayHours;
+    var need = target - done;
 
     var td = today();
     var restDays = remainingWorkDays(days, mt, fc);
     var elapsedWorkDays = workDays - restDays;
-
-    // 当天进行中记录的实时工时。**只作为渲染用的附加量**，绝不并进 done ——
-    // 因为 done 是「日均」（done ÷ 已工作天数）的分子，而日均的分母排除了当天；
-    // 若把实时工时算进 done，日均会随分钟数一路虚高跳动。
-    // 显示路径用 done + liveHours，计算路径继续用 done，两条路各自独立。
-    var liveHours = 0;
-    var lhToday = liveHoursOf(recs.find(function(x) { return x.date === td; }));
-    if (lhToday !== null && lhToday > 0) liveHours = lhToday;
-
-    var need = target - done;
     // 仅当今天落在本月、且今天仍是待完成的工作日时，才说「今天还需」
     var todayCounts = (td.indexOf(ms) === 0) &&
                       countWorkDays([td], mt, fc) > 0 && !isTodayDone();
@@ -381,21 +372,9 @@
     var perDay = status === 'chase' ? (need / restDays) : 0;
     var isCurrentMonth = ms === td.slice(0, 7);
 
-    // ── 显示口径（存量型指标专用） ────────────────────────────────────────
-    // 「本月还差」「每天需完成」问的是**还剩多少总量**，属于存量；
-    // 用户正在上着班时它就该随分钟往下走，不能等打完下班卡才动。
-    // 所以这两项走 disp* 口径（含实时工时）。
-    // 反过来「日均」是速率型（分母排除了当天），必须用纯 done，否则虚高跳动。
-    var dispDone = done + liveHours;
-    var dispNeed = target - dispDone;
-    var dispStatus = restDays === 0 ? (dispNeed > 0 ? 'overdue' : 'done')
-                : (dispNeed <= 0 ? 'done' : 'chase');
-    var dispPerDay = dispStatus === 'chase' ? (dispNeed / restDays) : 0;
-
     // 用常用时段的上班时间推算下班时间（超出 16h/天则不换算，避免出现跨天误导）
     var clockStart = clockStartOf();
-    // 收工点按显示口径算：今天已经干了 liveHours，要下班的时间自然更早
-    var clockEnd = (dispPerDay > 0 && dispPerDay <= 16) ? addHoursToTime(clockStart, dispPerDay) : '';
+    var clockEnd = (perDay > 0 && perDay <= 16) ? addHoursToTime(clockStart, perDay) : '';
 
     // 记录页副文案要用「今天真实的打卡时间」，而不是设置里的固定上班时间。
     // 只在 todayCounts 为真（今天仍是待完成的工作日）时才取：
@@ -403,7 +382,15 @@
     // 这时候套用今天的打卡时间会得出错误的收工点，故留空回退到 clockStart。
     var todayRec = todayCounts ? recs.find(function(x) { return x.date === td; }) : null;
     var actualStart = (todayRec && todayRec.startTime) ? todayRec.startTime : '';
-    var actualEnd = (actualStart && dispPerDay > 0 && dispPerDay <= 16) ? addHoursToTime(actualStart, dispPerDay) : '';
+    var actualEnd = (actualStart && perDay > 0 && perDay <= 16) ? addHoursToTime(actualStart, perDay) : '';
+
+    // 当天进行中记录的实时工时。**只作为渲染用的附加量**，绝不并进 done ——
+    // 因为 done 是「日均」（done ÷ 已工作天数）的分子，而日均的分母排除了当天；
+    // 若把实时工时算进 done，日均会随分钟数一路虚高跳动。
+    // 显示路径用 done + liveHours，计算路径继续用 done，两条路各自独立。
+    var liveHours = 0;
+    var lhToday = liveHoursOf(recs.find(function(x) { return x.date === td; }));
+    if (lhToday !== null && lhToday > 0) liveHours = lhToday;
 
     return {
       y: y, m: m, monthStr: ms,
@@ -414,14 +401,7 @@
       isCurrentMonth: isCurrentMonth,
       clockStart: clockStart, clockEnd: clockEnd,
       actualStart: actualStart, actualEnd: actualEnd,
-      liveHours: liveHours,
-      // 今天是否已完成 —— 用来切「今天起每天需完成」/「以后每天需完成」的措辞。
-      // 打卡完成瞬间分母会少一天（remainingWorkDays 排除今天），数字必然跳变一次；
-      // 把口径明示出来，跳变才是可理解的，而不是看着像算错。
-      todayDone: isTodayDone(),
-      // 显示口径（存量型指标专用；日均等速率型指标请继续用 done / perDay）
-      displayDone: dispDone, displayNeed: dispNeed,
-      displayPerDay: dispPerDay, displayStatus: dispStatus
+      liveHours: liveHours
     };
   }
 
@@ -435,13 +415,12 @@
     var md = (WHT.getUserModes() || []).find(function(x) { return x.id === state.currentMode; });
     var mt = md && md.type;
     var empty = { actual: 0, target: 0, holidayHours: 0, workDays: 0, workedDays: 0,
-                  dev: 0, days: [], perMonth: [], liveHours: 0 };
+                  dev: 0, days: [], perMonth: [] };
     if (!q) return empty;
 
     var recs = WHT.getUserRecords();
     var std = s.standardHours || 8;
     var actual = 0, target = 0, holidayHours = 0, workDays = 0, workedDays = 0;
-    var liveHours = 0;
     var allDays = [], perMonth = [];
 
     (q.months || []).forEach(function(m) {
@@ -454,12 +433,6 @@
       var days = getMonthDays(qy, m - 1);
       var wd = countWorkDays(days, mt, s.flextimeConfig);
       var mtar = std * wd;
-
-      // 当天进行中记录的实时工时。同样**只作附加量**，不并入 actual ——
-      // actual 是「日均」等速率型指标的分子（分母按已打卡天数算），
-      // 并进去会让日均虚高。存量型（累计还差 / 还清所需）才用 actual + liveHours。
-      var mlh = liveHoursOf(mr.find(function(x) { return x.date === today(); }));
-      if (mlh !== null && mlh > 0) liveHours += mlh;
 
       holidayHours += hh;
       actual += ma;
@@ -476,8 +449,7 @@
     return {
       actual: actual, target: target, holidayHours: holidayHours,
       workDays: workDays, workedDays: workedDays,
-      dev: actual - target, days: allDays, perMonth: perMonth,
-      liveHours: liveHours
+      dev: actual - target, days: allDays, perMonth: perMonth
     };
   }
 
@@ -533,20 +505,13 @@
     var sum = quarterSummary(qy, qi);
     var carry = quarterCarry(qy, qi);
     var cumulative = carry + sum.dev;
-
-    // 当天进行中记录的实时工时。**已不参与任何展示口径** ——
-    // v0.19.0 曾把它加进 need / perQuarter / perYear 让累计结转实时跳动，
-    // 实测下来是误导性大于实用性（见 dayCardHtml 的同类说明）。
-    // 现在 need / perQuarter / perYear 全部回到纯口径：**打完下班卡才更新**。
-    // liveHours 仍保留在返回值里，供调试与其他口径复用。
-    var qLive = sum.liveHours || 0;
+    var need = cumulative < 0 ? -cumulative : 0;
 
     var restQuarter = remainingWorkDays(sum.days, mt, fc);
     var yearDays = [];
     for (var m = 1; m <= 12; m++) yearDays = yearDays.concat(getMonthDays(qy, m - 1));
     var restYear = remainingWorkDays(yearDays, mt, fc);
 
-    var need = cumulative < 0 ? -cumulative : 0;
     var status = need <= 0 ? 'done' : (restYear === 0 ? 'overdue' : 'chase');
     // ⚠️ 两档「还清」都必须是「当天总工时」，否则量纲不同、没法画在同一刻度上比较。
     //    · 本季度内还清：分子 = need = 本季度剩余待做 + 历史欠账（本季度的事已全在 need 里）→ 除以本季度剩余天数即当天总工时。
@@ -579,9 +544,7 @@
       perQuarter: perQuarter, perYear: perYear,
       status: status, isCurrentYear: qy === new Date().getFullYear(),
       clockScope: clockScope, clockStart: clockStart, clockEnd: clockEnd,
-      clockTotal: clockTotal,
-      // liveHours 仅供调试：展示层已不使用它（见上方注释）
-      liveHours: qLive
+      clockTotal: clockTotal
     };
   }
 
@@ -743,10 +706,6 @@
   // 只取标准工时 → 欠账很多的人会以为今天干满 9h 就够了；
   // 只取每日需完成 → 有盈余时目标会被压到 9h 以下，与实际仍要上满班不符。
   // 取两者较大值，两种情形都对得上。
-  //
-  // 用纯口径 perDay（与底栏同源）：底栏既然是「打完下班卡才更新」，
-  // 进度环的目标线就该跟着同一口径走，否则会出现
-  // 「环按旧目标显示、底栏按新目标显示」的自相矛盾。
   function todayTargetOf(p, std) {
     var pd = (p && p.status === 'chase') ? (p.perDay || 0) : 0;
     return Math.max(std || 8, pd);
@@ -939,16 +898,8 @@
     var d = dayProgress(mode === 'done' ? 'done' : mode, ctx.startTime, ctx.endTime, ctx.hours, target);
 
     // 底栏：本月节奏三组数字，点击进月度页。
-// 数字都带语义色（还差=红 / 每天需完成=强调色 / 超额=绿），
-// 这几项是用户最常扫的信息，不能只靠灰色小字。
-    //
-    // ⚠️ 这里**刻意用纯口径**（need / perDay / done），不用 display* 实时值。
-    //   v0.19.0~v0.19.1 曾改成实时，实测下来是**误导性大于实用性**：
-    //   「本月还差」随分钟往下走，会让人以为目标在追着自己跑；
-    //   而打卡那一刻分母还会少一天，配额再跳一次（+0.2~0.8h），
-    //   两个变动叠在一起更难解释。
-    //   现在恢复成「打完下班卡才更新」—— 数字稳，用户才敢照着它安排。
-    //   （display* 字段仍保留在 monthPace 返回值里，供调试与其他口径复用。）
+    // 数字都带语义色（还差=红 / 每天需完成=强调色 / 超额=绿），
+    // 这几项是用户最常扫的信息，不能只靠灰色小字。
     var facts = [];
     if (p) {
       if (p.status === 'done') {

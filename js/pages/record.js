@@ -14,37 +14,21 @@ function renderTimerDisplay(el, startTime, targetHours, stdHours) {
 
 function startWorkingTimer() {
   stopWorkingTimer();
-  var std = WHT.getUserSettings().standardHours || 8;
+  var s = WHT.getUserSettings();
   var r = WHT.getUserRecords();
   var td = WHT.today();
   var tr = r.find(function(x) { return x.date === td; });
   if (!tr || !tr.startTime) return;
-
-  function currentPace() {
-    var n = new Date();
-    return WHT.monthPace(n.getFullYear(), n.getMonth());
-  }
-
-  // 首次只刷主体：底栏刚由 renderRecordPage 渲染过，重复渲染无意义
+  var std = s.standardHours || 8;
+  var now = new Date();
+  // 今日目标与今日卡同源：max(标准工时, 每日需完成)
+  var targetHours = WHT.todayTargetOf(WHT.monthPace(now.getFullYear(), now.getMonth()), std);
   var el0 = document.getElementById('dayBody');
-  if (el0) renderTimerDisplay(el0, tr.startTime, WHT.todayTargetOf(currentPace(), std), std);
-
-  // 心跳必须**整卡**重绘，不能只刷 dayBody ——
-  //   「本月还差 / 每天需完成」在 .day-foot 里，早先只刷 dayBody 导致这两项
-  //   要等下次切页面才更新，用户以为「打完下班卡才变」。
-  //   pace 一次算完同时供 body（目标线）与 foot（存量指标）使用，两边口径一致。
+  if (el0) renderTimerDisplay(el0, tr.startTime, targetHours, std);
   st._timerInterval = setInterval(function() {
     var el = document.getElementById('dayBody');
-    if (!el) { stopWorkingTimer(); return; }        // 已离开记录页
-    var p = currentPace();
-    var card = el.closest ? el.closest('.day-card') : null;
-    if (!card) {                                     // 结构变了，退回只刷主体
-      renderTimerDisplay(el, tr.startTime, WHT.todayTargetOf(p, std), std);
-      return;
-    }
-    card.outerHTML = WHT.dayCardHtml(p, {
-      mode: 'live', startTime: tr.startTime, endTime: '', hours: 0
-    });
+    if (!el) { stopWorkingTimer(); return; }
+    renderTimerDisplay(el, tr.startTime, targetHours, std);
   }, 10000);
 }
 
