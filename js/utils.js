@@ -534,19 +534,20 @@
     var carry = quarterCarry(qy, qi);
     var cumulative = carry + sum.dev;
 
-    // 当天进行中记录的实时工时（存量型指标专用）。
-    // 累计结转、还清所需这些问的是「还欠多少总量」，上班过程中就该随分钟变少；
-    // 而 actual / dev 本身保持纯已收工口径，供日均等速率型指标使用。
+    // 当天进行中记录的实时工时。**已不参与任何展示口径** ——
+    // v0.19.0 曾把它加进 need / perQuarter / perYear 让累计结转实时跳动，
+    // 实测下来是误导性大于实用性（见 dayCardHtml 的同类说明）。
+    // 现在 need / perQuarter / perYear 全部回到纯口径：**打完下班卡才更新**。
+    // liveHours 仍保留在返回值里，供调试与其他口径复用。
     var qLive = sum.liveHours || 0;
-    var dispCumulative = cumulative + qLive;
-    var dispNeed = dispCumulative < 0 ? -dispCumulative : 0;
 
     var restQuarter = remainingWorkDays(sum.days, mt, fc);
     var yearDays = [];
     for (var m = 1; m <= 12; m++) yearDays = yearDays.concat(getMonthDays(qy, m - 1));
     var restYear = remainingWorkDays(yearDays, mt, fc);
 
-    var status = dispNeed <= 0 ? 'done' : (restYear === 0 ? 'overdue' : 'chase');
+    var need = cumulative < 0 ? -cumulative : 0;
+    var status = need <= 0 ? 'done' : (restYear === 0 ? 'overdue' : 'chase');
     // ⚠️ 两档「还清」都必须是「当天总工时」，否则量纲不同、没法画在同一刻度上比较。
     //    · 本季度内还清：分子 = need = 本季度剩余待做 + 历史欠账（本季度的事已全在 need 里）→ 除以本季度剩余天数即当天总工时。
     //    · 到年底还清：分子还要**补上后续季度的常规目标**。
@@ -555,8 +556,8 @@
     //    注：qi === 3（Q4）时 restYear === restQuarter、laterTarget === 0，两档自动一致。
     var stdH = s.standardHours || 8;
     var laterTarget = Math.max(0, restYear - restQuarter) * stdH;
-    var perQuarter = (status === 'chase' && restQuarter > 0) ? dispNeed / restQuarter : 0;
-    var perYear = (status === 'chase' && restYear > 0) ? (dispNeed + laterTarget) / restYear : 0;
+    var perQuarter = (status === 'chase' && restQuarter > 0) ? need / restQuarter : 0;
+    var perYear = (status === 'chase' && restYear > 0) ? (need + laterTarget) / restYear : 0;
 
     // 下班时间换算挂在更宽松的「到年底」口径上（季度内那个常常不可达）
     var clockScope = perYear > 0 ? '到年底' : (perQuarter > 0 ? '本季度内' : '');
@@ -571,7 +572,7 @@
     var clockEnd = (clockTotal > 0 && clockTotal <= 14) ? addHoursToTime(clockStart, clockTotal) : '';
 
     return {
-      carry: carry, dev: sum.dev, cumulative: cumulative, need: dispNeed,
+      carry: carry, dev: sum.dev, cumulative: cumulative, need: need,
       actual: sum.actual, target: sum.target, holidayHours: sum.holidayHours,
       workDays: sum.workDays, workedDays: sum.workedDays, perMonth: sum.perMonth,
       restQuarter: restQuarter, restYear: restYear,
@@ -579,10 +580,8 @@
       status: status, isCurrentYear: qy === new Date().getFullYear(),
       clockScope: clockScope, clockStart: clockStart, clockEnd: clockEnd,
       clockTotal: clockTotal,
-      // 显示口径明细，便于排查「实时 / 非实时」差异
-      liveHours: qLive, displayCumulative: dispCumulative,
-      // 同 monthPace.todayDone：打卡后分母少一天，措辞需明示口径
-      todayDone: isTodayDone()
+      // liveHours 仅供调试：展示层已不使用它（见上方注释）
+      liveHours: qLive
     };
   }
 
@@ -681,7 +680,6 @@
               '</div>' +
               '<div class="qcum-load-foot">' +
                 '<span>剩 ' + x.days + ' 个工作日' +
-                  (p.todayDone ? '（自明天起）' : '（含今天）') +
                   (off ? ' · 需 <b>' + off + '</b> 下班' : '') + '</span>' +
                 '<span>' + (delta >= 0 ? '比日常多 ' + delta.toFixed(2) + 'h'
                                        : '比日常少 ' + (-delta).toFixed(2) + 'h（进度领先）') + '</span>' +
@@ -746,10 +744,11 @@
   // 只取每日需完成 → 有盈余时目标会被压到 9h 以下，与实际仍要上满班不符。
   // 取两者较大值，两种情形都对得上。
   //
-  // 用 displayPerDay（显示口径，含当天实时工时）：今天已经干了一部分，
-  // 达标线本就该比「还没开始上班时」低，否则进度环永远差一截。
+  // 用纯口径 perDay（与底栏同源）：底栏既然是「打完下班卡才更新」，
+  // 进度环的目标线就该跟着同一口径走，否则会出现
+  // 「环按旧目标显示、底栏按新目标显示」的自相矛盾。
   function todayTargetOf(p, std) {
-    var pd = (p && p.displayStatus === 'chase') ? (p.displayPerDay || 0) : 0;
+    var pd = (p && p.status === 'chase') ? (p.perDay || 0) : 0;
     return Math.max(std || 8, pd);
   }
 
@@ -940,38 +939,29 @@
     var d = dayProgress(mode === 'done' ? 'done' : mode, ctx.startTime, ctx.endTime, ctx.hours, target);
 
     // 底栏：本月节奏三组数字，点击进月度页。
-    // 数字都带语义色（还差=红 / 每天需完成=强调色 / 超额=绿），
-    // 这几项是用户最常扫的信息，不能只靠灰色小字。
+// 数字都带语义色（还差=红 / 每天需完成=强调色 / 超额=绿），
+// 这几项是用户最常扫的信息，不能只靠灰色小字。
     //
-    // 全部走**显示口径**（含当天实时工时）：这几项问的是「还剩多少总量」，
-    // 属于存量指标。上班过程中它们就该一路往下走，而不是等打完下班卡才动。
-    // （日均在月度页，那才是速率型指标，仍用纯 done —— 别把两边搞混。）
+    // ⚠️ 这里**刻意用纯口径**（need / perDay / done），不用 display* 实时值。
+    //   v0.19.0~v0.19.1 曾改成实时，实测下来是**误导性大于实用性**：
+    //   「本月还差」随分钟往下走，会让人以为目标在追着自己跑；
+    //   而打卡那一刻分母还会少一天，配额再跳一次（+0.2~0.8h），
+    //   两个变动叠在一起更难解释。
+    //   现在恢复成「打完下班卡才更新」—— 数字稳，用户才敢照着它安排。
+    //   （display* 字段仍保留在 monthPace 返回值里，供调试与其他口径复用。）
     var facts = [];
     if (p) {
-      var pStatus = p.displayStatus || p.status;
-      var pDone = (p.displayDone !== undefined) ? p.displayDone : p.done;
-      var pNeed = (p.displayNeed !== undefined) ? p.displayNeed : p.need;
-      var pPerDay = (p.displayPerDay !== undefined) ? p.displayPerDay : p.perDay;
-      if (pStatus === 'done') {
-        facts.push({ v: (pNeed < 0 ? '+' + Math.abs(pNeed).toFixed(1) : '0.0') + 'h', l: '本月超额', c: 'is-success' });
-        facts.push({ v: pDone.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
+      if (p.status === 'done') {
+        facts.push({ v: (p.need < 0 ? '+' + Math.abs(p.need).toFixed(1) : '0.0') + 'h', l: '本月超额', c: 'is-success' });
+        facts.push({ v: p.done.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
         facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
-      } else if (pStatus === 'overdue') {
-        facts.push({ v: pNeed.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
-        facts.push({ v: pDone.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
+      } else if (p.status === 'overdue') {
+        facts.push({ v: p.need.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
+        facts.push({ v: p.done.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
         facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
       } else {
-        // ⚠️ 措辞随「今天是否已完成」切换，不是随便改的：
-        //   打卡中 → restDays 含今天，配额是「今天起每天要干多少」
-        //   打卡后 → restDays 排除今天（见 remainingWorkDays），配额是「以后每天要干多少」
-        //   打卡瞬间分母少一天，配额必然跳升一次（实测 +0.2~0.8h）。
-        //   数字跳变在数学上是对的，但不说清口径会被当成算错。
-        facts.push({ v: pNeed.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
-        facts.push({
-          v: pPerDay.toFixed(2) + 'h',
-          l: p.todayDone ? '以后每天需完成' : '今天起每天需完成',
-          c: 'is-accent'
-        });
+        facts.push({ v: p.need.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
+        facts.push({ v: p.perDay.toFixed(2) + 'h', l: '每天需完成', c: 'is-accent' });
         facts.push({ v: String(p.restDays), l: '剩余工作日', c: '' });
       }
     }
