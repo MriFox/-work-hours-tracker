@@ -415,6 +415,10 @@
       clockStart: clockStart, clockEnd: clockEnd,
       actualStart: actualStart, actualEnd: actualEnd,
       liveHours: liveHours,
+      // 今天是否已完成 —— 用来切「今天起每天需完成」/「以后每天需完成」的措辞。
+      // 打卡完成瞬间分母会少一天（remainingWorkDays 排除今天），数字必然跳变一次；
+      // 把口径明示出来，跳变才是可理解的，而不是看着像算错。
+      todayDone: isTodayDone(),
       // 显示口径（存量型指标专用；日均等速率型指标请继续用 done / perDay）
       displayDone: dispDone, displayNeed: dispNeed,
       displayPerDay: dispPerDay, displayStatus: dispStatus
@@ -576,7 +580,9 @@
       clockScope: clockScope, clockStart: clockStart, clockEnd: clockEnd,
       clockTotal: clockTotal,
       // 显示口径明细，便于排查「实时 / 非实时」差异
-      liveHours: qLive, displayCumulative: dispCumulative
+      liveHours: qLive, displayCumulative: dispCumulative,
+      // 同 monthPace.todayDone：打卡后分母少一天，措辞需明示口径
+      todayDone: isTodayDone()
     };
   }
 
@@ -675,6 +681,7 @@
               '</div>' +
               '<div class="qcum-load-foot">' +
                 '<span>剩 ' + x.days + ' 个工作日' +
+                  (p.todayDone ? '（自明天起）' : '（含今天）') +
                   (off ? ' · 需 <b>' + off + '</b> 下班' : '') + '</span>' +
                 '<span>' + (delta >= 0 ? '比日常多 ' + delta.toFixed(2) + 'h'
                                        : '比日常少 ' + (-delta).toFixed(2) + 'h（进度领先）') + '</span>' +
@@ -954,8 +961,17 @@
         facts.push({ v: pDone.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
         facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
       } else {
+        // ⚠️ 措辞随「今天是否已完成」切换，不是随便改的：
+        //   打卡中 → restDays 含今天，配额是「今天起每天要干多少」
+        //   打卡后 → restDays 排除今天（见 remainingWorkDays），配额是「以后每天要干多少」
+        //   打卡瞬间分母少一天，配额必然跳升一次（实测 +0.2~0.8h）。
+        //   数字跳变在数学上是对的，但不说清口径会被当成算错。
         facts.push({ v: pNeed.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
-        facts.push({ v: pPerDay.toFixed(2) + 'h', l: '每天需完成', c: 'is-accent' });
+        facts.push({
+          v: pPerDay.toFixed(2) + 'h',
+          l: p.todayDone ? '以后每天需完成' : '今天起每天需完成',
+          c: 'is-accent'
+        });
         facts.push({ v: String(p.restDays), l: '剩余工作日', c: '' });
       }
     }
