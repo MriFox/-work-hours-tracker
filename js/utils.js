@@ -359,30 +359,10 @@
     var holidayHours = recs.filter(function(x) { return isHoliday(x.date); })
                            .reduce(function(a, x) { return a + x.hours; }, 0);
     var done = recs.reduce(function(a, x) { return a + x.hours; }, 0) - holidayHours;
-    var need = target - done;
 
     var td = today();
     var restDays = remainingWorkDays(days, mt, fc);
     var elapsedWorkDays = workDays - restDays;
-    // 仅当今天落在本月、且今天仍是待完成的工作日时，才说「今天还需」
-    var todayCounts = (td.indexOf(ms) === 0) &&
-                      countWorkDays([td], mt, fc) > 0 && !isTodayDone();
-
-    var status = restDays === 0 ? (need > 0 ? 'overdue' : 'done') : (need <= 0 ? 'done' : 'chase');
-    var perDay = status === 'chase' ? (need / restDays) : 0;
-    var isCurrentMonth = ms === td.slice(0, 7);
-
-    // 用常用时段的上班时间推算下班时间（超出 16h/天则不换算，避免出现跨天误导）
-    var clockStart = clockStartOf();
-    var clockEnd = (perDay > 0 && perDay <= 16) ? addHoursToTime(clockStart, perDay) : '';
-
-    // 记录页副文案要用「今天真实的打卡时间」，而不是设置里的固定上班时间。
-    // 只在 todayCounts 为真（今天仍是待完成的工作日）时才取：
-    // 已经打完下班卡时 restDays 不含今天，perDay 描述的是「以后每个工作日」，
-    // 这时候套用今天的打卡时间会得出错误的收工点，故留空回退到 clockStart。
-    var todayRec = todayCounts ? recs.find(function(x) { return x.date === td; }) : null;
-    var actualStart = (todayRec && todayRec.startTime) ? todayRec.startTime : '';
-    var actualEnd = (actualStart && perDay > 0 && perDay <= 16) ? addHoursToTime(actualStart, perDay) : '';
 
     // 当天进行中记录的实时工时。**只作为渲染用的附加量**，绝不并进 done ——
     // 因为 done 是「日均」（done ÷ 已工作天数）的分子，而日均的分母排除了当天；
@@ -391,6 +371,39 @@
     var liveHours = 0;
     var lhToday = liveHoursOf(recs.find(function(x) { return x.date === td; }));
     if (lhToday !== null && lhToday > 0) liveHours = lhToday;
+
+    var need = target - done;
+    // 仅当今天落在本月、且今天仍是待完成的工作日时，才说「今天还需」
+    var todayCounts = (td.indexOf(ms) === 0) &&
+                      countWorkDays([td], mt, fc) > 0 && !isTodayDone();
+
+    var status = restDays === 0 ? (need > 0 ? 'overdue' : 'done') : (need <= 0 ? 'done' : 'chase');
+    var perDay = status === 'chase' ? (need / restDays) : 0;
+    var isCurrentMonth = ms === td.slice(0, 7);
+
+    // ── 显示口径（存量型指标专用） ────────────────────────────────────────
+    // 「本月还差」「每天需完成」问的是**还剩多少总量**，属于存量；
+    // 用户正在上着班时它就该随分钟往下走，不能等打完下班卡才动。
+    // 所以这两项走 disp* 口径（含实时工时）。
+    // 反过来「日均」是速率型（分母排除了当天），必须用纯 done，否则虚高跳动。
+    var dispDone = done + liveHours;
+    var dispNeed = target - dispDone;
+    var dispStatus = restDays === 0 ? (dispNeed > 0 ? 'overdue' : 'done')
+                : (dispNeed <= 0 ? 'done' : 'chase');
+    var dispPerDay = dispStatus === 'chase' ? (dispNeed / restDays) : 0;
+
+    // 用常用时段的上班时间推算下班时间（超出 16h/天则不换算，避免出现跨天误导）
+    var clockStart = clockStartOf();
+    // 收工点按显示口径算：今天已经干了 liveHours，要下班的时间自然更早
+    var clockEnd = (dispPerDay > 0 && dispPerDay <= 16) ? addHoursToTime(clockStart, dispPerDay) : '';
+
+    // 记录页副文案要用「今天真实的打卡时间」，而不是设置里的固定上班时间。
+    // 只在 todayCounts 为真（今天仍是待完成的工作日）时才取：
+    // 已经打完下班卡时 restDays 不含今天，perDay 描述的是「以后每个工作日」，
+    // 这时候套用今天的打卡时间会得出错误的收工点，故留空回退到 clockStart。
+    var todayRec = todayCounts ? recs.find(function(x) { return x.date === td; }) : null;
+    var actualStart = (todayRec && todayRec.startTime) ? todayRec.startTime : '';
+    var actualEnd = (actualStart && dispPerDay > 0 && dispPerDay <= 16) ? addHoursToTime(actualStart, dispPerDay) : '';
 
     return {
       y: y, m: m, monthStr: ms,
@@ -401,7 +414,10 @@
       isCurrentMonth: isCurrentMonth,
       clockStart: clockStart, clockEnd: clockEnd,
       actualStart: actualStart, actualEnd: actualEnd,
-      liveHours: liveHours
+      liveHours: liveHours,
+      // 显示口径（存量型指标专用；日均等速率型指标请继续用 done / perDay）
+      displayDone: dispDone, displayNeed: dispNeed,
+      displayPerDay: dispPerDay, displayStatus: dispStatus
     };
   }
 
@@ -415,12 +431,13 @@
     var md = (WHT.getUserModes() || []).find(function(x) { return x.id === state.currentMode; });
     var mt = md && md.type;
     var empty = { actual: 0, target: 0, holidayHours: 0, workDays: 0, workedDays: 0,
-                  dev: 0, days: [], perMonth: [] };
+                  dev: 0, days: [], perMonth: [], liveHours: 0 };
     if (!q) return empty;
 
     var recs = WHT.getUserRecords();
     var std = s.standardHours || 8;
     var actual = 0, target = 0, holidayHours = 0, workDays = 0, workedDays = 0;
+    var liveHours = 0;
     var allDays = [], perMonth = [];
 
     (q.months || []).forEach(function(m) {
@@ -433,6 +450,12 @@
       var days = getMonthDays(qy, m - 1);
       var wd = countWorkDays(days, mt, s.flextimeConfig);
       var mtar = std * wd;
+
+      // 当天进行中记录的实时工时。同样**只作附加量**，不并入 actual ——
+      // actual 是「日均」等速率型指标的分子（分母按已打卡天数算），
+      // 并进去会让日均虚高。存量型（累计还差 / 还清所需）才用 actual + liveHours。
+      var mlh = liveHoursOf(mr.find(function(x) { return x.date === today(); }));
+      if (mlh !== null && mlh > 0) liveHours += mlh;
 
       holidayHours += hh;
       actual += ma;
@@ -449,7 +472,8 @@
     return {
       actual: actual, target: target, holidayHours: holidayHours,
       workDays: workDays, workedDays: workedDays,
-      dev: actual - target, days: allDays, perMonth: perMonth
+      dev: actual - target, days: allDays, perMonth: perMonth,
+      liveHours: liveHours
     };
   }
 
@@ -505,14 +529,20 @@
     var sum = quarterSummary(qy, qi);
     var carry = quarterCarry(qy, qi);
     var cumulative = carry + sum.dev;
-    var need = cumulative < 0 ? -cumulative : 0;
+
+    // 当天进行中记录的实时工时（存量型指标专用）。
+    // 累计结转、还清所需这些问的是「还欠多少总量」，上班过程中就该随分钟变少；
+    // 而 actual / dev 本身保持纯已收工口径，供日均等速率型指标使用。
+    var qLive = sum.liveHours || 0;
+    var dispCumulative = cumulative + qLive;
+    var dispNeed = dispCumulative < 0 ? -dispCumulative : 0;
 
     var restQuarter = remainingWorkDays(sum.days, mt, fc);
     var yearDays = [];
     for (var m = 1; m <= 12; m++) yearDays = yearDays.concat(getMonthDays(qy, m - 1));
     var restYear = remainingWorkDays(yearDays, mt, fc);
 
-    var status = need <= 0 ? 'done' : (restYear === 0 ? 'overdue' : 'chase');
+    var status = dispNeed <= 0 ? 'done' : (restYear === 0 ? 'overdue' : 'chase');
     // ⚠️ 两档「还清」都必须是「当天总工时」，否则量纲不同、没法画在同一刻度上比较。
     //    · 本季度内还清：分子 = need = 本季度剩余待做 + 历史欠账（本季度的事已全在 need 里）→ 除以本季度剩余天数即当天总工时。
     //    · 到年底还清：分子还要**补上后续季度的常规目标**。
@@ -521,8 +551,8 @@
     //    注：qi === 3（Q4）时 restYear === restQuarter、laterTarget === 0，两档自动一致。
     var stdH = s.standardHours || 8;
     var laterTarget = Math.max(0, restYear - restQuarter) * stdH;
-    var perQuarter = (status === 'chase' && restQuarter > 0) ? need / restQuarter : 0;
-    var perYear = (status === 'chase' && restYear > 0) ? (need + laterTarget) / restYear : 0;
+    var perQuarter = (status === 'chase' && restQuarter > 0) ? dispNeed / restQuarter : 0;
+    var perYear = (status === 'chase' && restYear > 0) ? (dispNeed + laterTarget) / restYear : 0;
 
     // 下班时间换算挂在更宽松的「到年底」口径上（季度内那个常常不可达）
     var clockScope = perYear > 0 ? '到年底' : (perQuarter > 0 ? '本季度内' : '');
@@ -537,14 +567,16 @@
     var clockEnd = (clockTotal > 0 && clockTotal <= 14) ? addHoursToTime(clockStart, clockTotal) : '';
 
     return {
-      carry: carry, dev: sum.dev, cumulative: cumulative, need: need,
+      carry: carry, dev: sum.dev, cumulative: cumulative, need: dispNeed,
       actual: sum.actual, target: sum.target, holidayHours: sum.holidayHours,
       workDays: sum.workDays, workedDays: sum.workedDays, perMonth: sum.perMonth,
       restQuarter: restQuarter, restYear: restYear,
       perQuarter: perQuarter, perYear: perYear,
       status: status, isCurrentYear: qy === new Date().getFullYear(),
       clockScope: clockScope, clockStart: clockStart, clockEnd: clockEnd,
-      clockTotal: clockTotal
+      clockTotal: clockTotal,
+      // 显示口径明细，便于排查「实时 / 非实时」差异
+      liveHours: qLive, displayCumulative: dispCumulative
     };
   }
 
@@ -706,8 +738,11 @@
   // 只取标准工时 → 欠账很多的人会以为今天干满 9h 就够了；
   // 只取每日需完成 → 有盈余时目标会被压到 9h 以下，与实际仍要上满班不符。
   // 取两者较大值，两种情形都对得上。
+  //
+  // 用 displayPerDay（显示口径，含当天实时工时）：今天已经干了一部分，
+  // 达标线本就该比「还没开始上班时」低，否则进度环永远差一截。
   function todayTargetOf(p, std) {
-    var pd = (p && p.status === 'chase') ? (p.perDay || 0) : 0;
+    var pd = (p && p.displayStatus === 'chase') ? (p.displayPerDay || 0) : 0;
     return Math.max(std || 8, pd);
   }
 
@@ -900,19 +935,27 @@
     // 底栏：本月节奏三组数字，点击进月度页。
     // 数字都带语义色（还差=红 / 每天需完成=强调色 / 超额=绿），
     // 这几项是用户最常扫的信息，不能只靠灰色小字。
+    //
+    // 全部走**显示口径**（含当天实时工时）：这几项问的是「还剩多少总量」，
+    // 属于存量指标。上班过程中它们就该一路往下走，而不是等打完下班卡才动。
+    // （日均在月度页，那才是速率型指标，仍用纯 done —— 别把两边搞混。）
     var facts = [];
     if (p) {
-      if (p.status === 'done') {
-        facts.push({ v: (p.need < 0 ? '+' + Math.abs(p.need).toFixed(1) : '0.0') + 'h', l: '本月超额', c: 'is-success' });
-        facts.push({ v: p.done.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
+      var pStatus = p.displayStatus || p.status;
+      var pDone = (p.displayDone !== undefined) ? p.displayDone : p.done;
+      var pNeed = (p.displayNeed !== undefined) ? p.displayNeed : p.need;
+      var pPerDay = (p.displayPerDay !== undefined) ? p.displayPerDay : p.perDay;
+      if (pStatus === 'done') {
+        facts.push({ v: (pNeed < 0 ? '+' + Math.abs(pNeed).toFixed(1) : '0.0') + 'h', l: '本月超额', c: 'is-success' });
+        facts.push({ v: pDone.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
         facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
-      } else if (p.status === 'overdue') {
-        facts.push({ v: p.need.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
-        facts.push({ v: p.done.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
+      } else if (pStatus === 'overdue') {
+        facts.push({ v: pNeed.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
+        facts.push({ v: pDone.toFixed(1) + 'h', l: '本月已完成', c: 'is-accent' });
         facts.push({ v: p.target + 'h', l: '本月目标', c: '' });
       } else {
-        facts.push({ v: p.need.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
-        facts.push({ v: p.perDay.toFixed(2) + 'h', l: '每天需完成', c: 'is-accent' });
+        facts.push({ v: pNeed.toFixed(1) + 'h', l: '本月还差', c: 'is-danger' });
+        facts.push({ v: pPerDay.toFixed(2) + 'h', l: '每天需完成', c: 'is-accent' });
         facts.push({ v: String(p.restDays), l: '剩余工作日', c: '' });
       }
     }

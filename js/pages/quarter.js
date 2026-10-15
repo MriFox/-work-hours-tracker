@@ -102,6 +102,9 @@
 
     c.innerHTML = navHtml + statsHtml + ringHtml + qcumHtml + monthsHtml + emptyHtml + fabHtml;
 
+    // 年度累计结转实时刷新（仅有进行中记录时才启动）
+    startQuarterTicker();
+
     // 「设置期初结余」入口
     var editEl = c.querySelector('.qcum-edit');
     if (editEl) editEl.onclick = function() { editQuarterCarry(); };
@@ -188,6 +191,34 @@
 
   function switchQuarter(i) { WHT.haptic('light'); st.quarterIndex = i; WHT.renderCurrentTab(true); }
   function changeQuarterYear(dir) { WHT.haptic('light'); st.quarterYear = (st.quarterYear || new Date().getFullYear()) + dir; WHT.renderCurrentTab(true); }
+
+  /* 年度累计结转的实时刷新
+   *
+   * 与记录页的 10s 心跳分开：季度数据变化慢，且这里整页重算（含 12 个月的
+   * 逐月汇总），30s 一次足够，也更省电。
+   *
+   * 只在**有进行中记录**时才启动 —— 没有实时增量时刷新毫无意义，
+   * 白白耗电还可能打断用户滚动。
+   *
+   * 必须先 stop 再 start：本回调里会 renderCurrentTab → renderQuarterPage，
+   * 若不先停就会每轮叠加一个新定时器。
+   */
+  function stopQuarterTicker() {
+    if (st._quarterTicker) { clearInterval(st._quarterTicker); st._quarterTicker = null; }
+  }
+
+  function startQuarterTicker() {
+    stopQuarterTicker();
+    var working = WHT.getUserRecords().some(function(x) {
+      return x.status === 'working' || !x.endTime;
+    });
+    if (!working) return;
+    st._quarterTicker = setInterval(function() {
+      // 离开季度页就停，避免在后台空转
+      if (st.currentTab !== 'quarter') { stopQuarterTicker(); return; }
+      WHT.renderCurrentTab(true);
+    }, 30000);
+  }
 
   WHT.renderQuarterPage = renderQuarterPage;
   WHT.switchQuarter = switchQuarter;
